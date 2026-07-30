@@ -1778,6 +1778,15 @@ async function boot(){
    ══════════════════════════════════════════════════════════════════════════ */
 
 const CFG = (typeof FN_CONFIG !== "undefined" ? FN_CONFIG : {});
+
+/* Tolerate a server address pasted without https:// or with a trailing slash.
+   Without a scheme the browser treats it as a path on your own site, and every
+   call quietly 404s — a very easy mistake to make and a very hard one to see. */
+const SERVER = (function(u){
+  u = (u || "").trim().replace(/\/+$/, "");
+  if(!u) return "";
+  return /^https?:\/\//.test(u) ? u : "https://" + u;
+})(CFG.pushServer);
 const FOLLOW_KEY = "football-news-follows";
 
 const Follows = {
@@ -1849,7 +1858,7 @@ const Follows = {
 const Push = {
   sub: null,
 
-  configured(){ return !!(CFG.pushServer && CFG.vapidPublicKey); },
+  configured(){ return !!(SERVER && CFG.vapidPublicKey); },
   supported(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; },
   ready(){ return !!Push.sub; },
 
@@ -1899,7 +1908,7 @@ const Push = {
   async disable(){
     try{
       if(Push.sub){
-        await fetch(CFG.pushServer + "/unsubscribe", {
+        await fetch(SERVER + "/unsubscribe", {
           method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({endpoint: Push.sub.endpoint})
         }).catch(()=>{});
@@ -1916,7 +1925,7 @@ const Push = {
   async sync(){
     if(!Push.sub || !Push.configured()) return;
     try{
-      await fetch(CFG.pushServer + "/subscribe", {
+      await fetch(SERVER + "/subscribe", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
           subscription: Push.sub.toJSON ? Push.sub.toJSON() : Push.sub,
@@ -1930,7 +1939,7 @@ const Push = {
     if(!Push.sub) return Toast.show("Turn notifications on first");
     const id = await Push.deviceId();
     try{
-      const r = await fetch(CFG.pushServer + "/test", {
+      const r = await fetch(SERVER + "/test", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({id})
       });

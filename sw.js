@@ -12,7 +12,7 @@
  * without offline support.
  */
 
-const VERSION = "football-news-v3";
+const VERSION = "football-news-v4";
 const SHELL = [
   "./",
   "./index.html",
@@ -112,11 +112,16 @@ self.addEventListener("push", event => {
     const cfg = self.FN_CONFIG || {};
     let items = [];
 
-    if (cfg.pushServer) {
+    const server = (function(u){
+      u = (u || "").trim().replace(/\/+$/, "");
+      return !u ? "" : (/^https?:\/\//.test(u) ? u : "https://" + u);
+    })(cfg.pushServer);
+
+    if (server) {
       try {
         const id = await deviceId();
         if (id) {
-          const r = await fetch(cfg.pushServer + "/pending?id=" + encodeURIComponent(id), { cache: "no-store" });
+          const r = await fetch(server + "/pending?id=" + encodeURIComponent(id), { cache: "no-store" });
           if (r.ok) items = (await r.json()).items || [];
         }
       } catch (e) { /* fall through to the generic one below */ }
