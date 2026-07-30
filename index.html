@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Romano Tracker</title>
+
+<!-- Home-screen app. On iOS these three tags are what turn a bookmark into
+     something that opens full screen with its own icon and no Safari chrome. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Romano">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c0f14">
+<meta name="description" content="Fabrizio Romano's transfer and injury news, sorted by club, player and deal stage.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<style>
+:root{
+  --bg:#0c0f14; --bg2:#12161e; --bg3:#171d27; --line:#232b38;
+  --tx:#e8edf5; --tx2:#93a1b5; --tx3:#5f6d80;
+  --acc:#3ba55d; --acc2:#4c9aff;
+  --hwg:#00d47e; --official:#00b3ff; --medical:#a78bfa;
+  --agreed:#38bdf8; --advanced:#fbbf24; --talks:#f59e0b; --rumour:#6b7a8f;
+  --injury:#ef4444; --contract:#22d3ee; --manager:#e879f9; --exit:#fb923c;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--tx);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--acc2);text-decoration:none}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2a3341;border-radius:5px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#3a4657}
+
+/* ---------- layout ---------- */
+.app{display:flex;flex-direction:column;height:100vh}
+header{
+  display:flex;align-items:center;gap:14px;padding:12px 18px;
+  background:var(--bg2);border-bottom:1px solid var(--line);flex-shrink:0;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:9px;flex-shrink:0;cursor:pointer}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--hwg);box-shadow:0 0 10px var(--hwg)}
+.brand b{font-size:15px;letter-spacing:-.2px}
+.brand span{color:var(--tx3);font-size:11px;display:block;line-height:1.1;margin-top:1px}
+
+.searchwrap{position:relative;flex:1;max-width:560px}
+.searchwrap input{
+  width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:8px;
+  padding:9px 34px 9px 34px;outline:none;
+}
+.searchwrap input:focus{border-color:var(--acc2);background:#1a212c}
+.searchwrap .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
+.searchwrap .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--tx3);padding:2px 6px;border-radius:4px}
+.searchwrap .clr:hover{color:var(--tx);background:var(--line)}
+.ac{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg3);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  box-shadow:0 16px 40px rgba(0,0,0,.6);max-height:380px;overflow-y:auto;display:none;
+}
+.ac.on{display:block}
+.ac .grp{padding:7px 12px 4px;font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--tx3);background:var(--bg2)}
+.ac .it{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer}
+.ac .it:hover,.ac .it.sel{background:#202836}
+.ac .it .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac .it .sub{color:var(--tx3);font-size:11.5px;flex-shrink:0}
+.ac .it .n{color:var(--tx3);font-size:11px;background:var(--bg);padding:1px 6px;border-radius:20px}
+
+.hbtns{display:flex;gap:8px;margin-left:auto;flex-shrink:0}
+.btn{
+  background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:7px 13px;
+  font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.btn:hover{background:#212936;border-color:#33405230}
+.btn.pri{background:var(--acc);border-color:transparent;color:#fff;font-weight:500}
+.btn.pri:hover{background:#45b86b}
+
+main{display:flex;flex:1;min-height:0}
+
+/* ---------- sidebar ---------- */
+aside{
+  width:232px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--line);
+  overflow-y:auto;padding:14px 0 30px;
+}
+.sect{padding:0 14px;margin-bottom:20px}
+.sect h4{
+  font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);
+  margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;
+}
+.sect h4 button{color:var(--tx3);font-size:10px}
+.sect h4 button:hover{color:var(--tx)}
+.fil{
+  display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:6px;
+  cursor:pointer;font-size:13px;color:var(--tx2);
+}
+.fil:hover{background:var(--bg3);color:var(--tx)}
+.fil.on{background:#1e2632;color:var(--tx)}
+.fil .sw{width:8px;height:8px;border-radius:2.5px;flex-shrink:0}
+.fil .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fil .ct{font-size:11px;color:var(--tx3);background:var(--bg);padding:1px 6px;border-radius:20px}
+.fil.on .ct{background:#2a3441;color:var(--tx2)}
+
+.srcbox{background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:11px;margin:0 14px 18px}
+.srcbox .row{display:flex;align-items:center;gap:9px}
+.srcbox .av{
+  width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1d9bf0,#0f6fb5);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;
+}
+.srcbox .nm{font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px}
+.srcbox .hd{font-size:11px;color:var(--tx3)}
+.srcbox .meta{margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--tx3);display:flex;justify-content:space-between}
+
+/* ---------- feed ---------- */
+.content{flex:1;overflow-y:auto;min-width:0}
+.inner{max-width:760px;margin:0 auto;padding:20px 22px 60px}
+
+.crumb{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--tx3)}
+.crumb button{color:var(--acc2)}
+.crumb button:hover{text-decoration:underline}
+
+.ehead{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.ehead .top{display:flex;align-items:flex-start;gap:14px}
+.ehead .crest{
+  width:48px;height:48px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:16px;flex-shrink:0;letter-spacing:-.5px;
+}
+.ehead h1{font-size:22px;letter-spacing:-.4px;line-height:1.2}
+.ehead .sub{color:var(--tx2);font-size:13px;margin-top:3px}
+.ehead .stats{display:flex;gap:22px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line)}
+.ehead .stat b{display:block;font-size:19px;letter-spacing:-.3px}
+.ehead .stat span{font-size:10.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.7px}
+
+/* deal stage ladder */
+.ladder{margin-top:16px;padding-top:15px;border-top:1px solid var(--line)}
+.ladder .lb{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);margin-bottom:11px}
+.rungs{display:flex;align-items:center;gap:0}
+.rung{flex:1;text-align:center;position:relative}
+.rung .bar{height:4px;background:var(--line);border-radius:2px;margin-bottom:7px}
+.rung.hit .bar{background:var(--acc)}
+.rung.cur .bar{background:var(--hwg);box-shadow:0 0 12px var(--hwg)}
+.rung .t{font-size:10px;color:var(--tx3);white-space:nowrap}
+.rung.hit .t{color:var(--tx2)}
+.rung.cur .t{color:var(--hwg);font-weight:600}
+
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.chip{
+  background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:5px 12px;
+  font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:6px;
+}
+.chip:hover{border-color:#3a4757;color:var(--tx)}
+.chip.on{background:#1e3a2a;border-color:var(--acc);color:#8fe0aa}
+.chip .sw{width:7px;height:7px;border-radius:2px}
+
+.bar-sort{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12.5px;color:var(--tx3)}
+.bar-sort select{background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:5px 9px;outline:none}
+
+/* post card */
+.post{
+  background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:15px 17px;margin-bottom:11px;
+  position:relative;overflow:hidden;
+}
+.post:hover{border-color:#2f3a4a}
+.post .accent{position:absolute;left:0;top:0;bottom:0;width:3px}
+.post .ph{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+.badge{
+  font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:3px 8px;border-radius:5px;
+}
+.stagebadge{font-size:10.5px;padding:3px 8px;border-radius:5px;border:1px solid;background:transparent}
+.post .time{color:var(--tx3);font-size:12px;margin-left:auto}
+.post .txt{font-size:14.5px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
+.post .txt mark{background:#3d5a2a;color:#c8f09a;padding:0 2px;border-radius:2px}
+.post .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid var(--line)}
+.tag{
+  font-size:11.5px;padding:3px 9px;border-radius:6px;background:var(--bg3);
+  border:1px solid var(--line);color:var(--tx2);display:flex;align-items:center;gap:5px;
+}
+.tag:hover{background:#242e3c;color:var(--tx);border-color:#3a4757}
+.tag .k{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+.tag.guess{border-style:dashed;opacity:.75}
+.post .fee{
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#8fe0aa;
+  background:#16301f;border:1px solid #235c37;padding:2px 9px;border-radius:6px;
+}
+.post .foot{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:11.5px;color:var(--tx3)}
+.post .foot a:hover{text-decoration:underline}
+
+.empty{text-align:center;padding:70px 20px;color:var(--tx3)}
+.empty .big{font-size:34px;margin-bottom:12px;opacity:.35}
+.empty h3{font-size:16px;color:var(--tx2);margin-bottom:7px;font-weight:600}
+.empty p{font-size:13px;max-width:390px;margin:0 auto 18px;line-height:1.6}
+
+/* ---------- modal ---------- */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;z-index:200;padding:24px}
+.ov.on{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--line);border-radius:14px;width:100%;max-width:640px;max-height:86vh;display:flex;flex-direction:column}
+.modal .mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:between}
+.modal .mh h3{font-size:15px;flex:1}
+.modal .mb{padding:18px 20px;overflow-y:auto}
+.modal .mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end}
+.modal textarea{
+  width:100%;height:210px;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;resize:vertical;outline:none;
+}
+.modal textarea:focus{border-color:var(--acc2)}
+.hint{font-size:12px;color:var(--tx3);line-height:1.6;margin-bottom:11px}
+.hint code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11.5px;color:var(--tx2)}
+.tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--bg);padding:3px;border-radius:8px}
+.tabs button{flex:1;padding:7px;border-radius:6px;font-size:12.5px;color:var(--tx3)}
+.tabs button.on{background:var(--bg3);color:var(--tx)}
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:11px 18px;
+  font-size:13px;box-shadow:0 12px 34px rgba(0,0,0,.5);z-index:300;opacity:0;
+  transition:.24s cubic-bezier(.2,.8,.3,1);
+}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn.working{opacity:.65;pointer-events:none}
+.btn.working svg{animation:spin .9s linear infinite;transform-origin:50% 50%}
+.btn .dotnew{
+  width:6px;height:6px;border-radius:50%;background:var(--hwg);
+  box-shadow:0 0 8px var(--hwg);margin-left:1px;
+}
+/* ---------- mobile ---------- */
+#mobileFilters{display:none}
+/* Running from the home screen: keep content clear of the notch, the rounded
+   corners and the home indicator. env() is 0 everywhere else, so this is inert
+   on desktop. */
+@supports(padding:max(0px)){
+  header{
+    padding-top:max(12px, env(safe-area-inset-top));
+    padding-left:max(18px, env(safe-area-inset-left));
+    padding-right:max(18px, env(safe-area-inset-right));
+  }
+  .inner{
+    padding-left:max(22px, env(safe-area-inset-left));
+    padding-right:max(22px, env(safe-area-inset-right));
+    padding-bottom:max(60px, calc(env(safe-area-inset-bottom) + 40px));
+  }
+  .toast{bottom:max(22px, calc(env(safe-area-inset-bottom) + 14px))}
+}
+
+@media(max-width:820px){
+  aside{display:none}
+  header{flex-wrap:wrap;padding:10px 12px;gap:10px}
+  .brand span{display:none}
+  .searchwrap{order:3;max-width:none;flex-basis:100%}
+  .inner{padding:14px 12px 50px}
+  .hbtns .btn{padding:7px 10px}
+
+  /* touch targets and no zoom-on-focus: iOS zooms any input under 16px */
+  .searchwrap input{font-size:16px;padding-top:11px;padding-bottom:11px}
+  .btn{padding:9px 12px}
+  .fil,.chip,.tag{min-height:32px}
+  .post .tags{gap:7px}
+  .tag{padding:5px 10px}
+  body{overscroll-behavior-y:contain}       /* no rubber-band on the whole page */
+  .content{-webkit-overflow-scrolling:touch}
+
+  @supports(padding:max(0px)){
+    header{
+      padding-top:max(10px, env(safe-area-inset-top));
+      padding-left:max(12px, env(safe-area-inset-left));
+      padding-right:max(12px, env(safe-area-inset-right));
+    }
+    .inner{
+      padding-left:max(12px, env(safe-area-inset-left));
+      padding-right:max(12px, env(safe-area-inset-right));
+      padding-bottom:max(50px, calc(env(safe-area-inset-bottom) + 34px));
+    }
+  }
+  #mobileFilters{
+    display:flex;gap:7px;overflow-x:auto;padding:0 0 12px;margin:0 0 4px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  #mobileFilters::-webkit-scrollbar{display:none}
+  #mobileFilters .chip{flex-shrink:0}
+  .ehead{padding:15px 16px}
+  .ehead h1{font-size:19px}
+  .ehead .stats{gap:16px;flex-wrap:wrap;row-gap:10px}
+  .rung .t{font-size:8.5px}
+  .post{padding:13px 14px}
+  .post .txt{font-size:14px}
+}
+@media(max-width:420px){
+  .rungs .rung .t{display:none}
+  .rungs .rung.cur .t{display:block}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand" onclick="Nav.home()">
+      <div class="dot"></div>
+      <div><b>Romano Tracker</b><span>transfer &amp; injury intelligence</span></div>
+    </div>
+
+    <div class="searchwrap">
+      <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+      </svg>
+      <input id="q" placeholder="Search a player or club…  e.g. Mbappé, Arsenal, Wirtz" autocomplete="off" spellcheck="false">
+      <button class="clr" id="clr" style="display:none" onclick="Search.clear()">✕</button>
+      <div class="ac" id="ac"></div>
+    </div>
+
+    <div class="hbtns">
+      <button class="btn" id="btnUpdate" onclick="Live.update()" title="Read every post since the last check">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M20 11a8 8 0 1 0-1.6 5.3"/><path d="M20 4v7h-7"/>
+        </svg>
+        Update
+      </button>
+      <button class="btn" onclick="Modal.open('import')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
+        Import
+      </button>
+      <button class="btn" onclick="Modal.open('manage')">Data</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <div class="srcbox">
+        <div class="row">
+          <div class="av">FR</div>
+          <div style="min-width:0">
+            <div class="nm">Fabrizio Romano <span style="color:#1d9bf0">✓</span></div>
+            <div class="hd"><a href="https://t.me/fabrizioromanotg" target="_blank" rel="noopener" style="color:inherit">t.me/fabrizioromanotg</a></div>
+          </div>
+        </div>
+        <div class="meta"><span id="srcCount">0 posts</span><span id="srcLast">—</span></div>
+      </div>
+
+      <div class="sect">
+        <h4>Category <button onclick="Filters.reset('cat')">reset</button></h4>
+        <div id="catFilters"></div>
+      </div>
+
+      <div class="sect">
+        <h4>Deal stage <button onclick="Filters.reset('stage')">reset</button></h4>
+        <div id="stageFilters"></div>
+      </div>
+
+      <div class="sect">
+        <h4>League <button onclick="Filters.reset('league')">reset</button></h4>
+        <div id="leagueFilters"></div>
+      </div>
+
+      <div class="sect">
+        <h4>Window</h4>
+        <div id="timeFilters"></div>
+      </div>
+    </aside>
+
+    <div class="content" id="content">
+      <div class="inner">
+        <div id="mobileFilters"></div>
+        <div id="view"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- import modal -->
+<div class="ov" id="ovImport" onclick="if(event.target===this)Modal.close()">
+  <div class="modal">
+    <div class="mh"><h3>Import Fabrizio Romano posts</h3></div>
+    <div class="mb">
+      <div class="tabs">
+        <button class="on" onclick="Modal.tab('paste',this)">Paste JSON</button>
+        <button onclick="Modal.tab('file',this)">Upload file</button>
+        <button onclick="Modal.tab('raw',this)">Paste raw text</button>
+      </div>
+
+      <div id="tabPaste">
+        <div class="hint">
+          Array of post objects. Only <code>text</code> is required — everything else is derived automatically.
+          <br><br><code>[{"id":"1234","ts":"2026-07-26T14:32:00Z","text":"🚨 Arsenal…","url":"https://t.me/…"}]</code>
+        </div>
+        <textarea id="jsonIn" placeholder='[{"id":"...","ts":"...","text":"..."}]' spellcheck="false"></textarea>
+      </div>
+
+      <div id="tabFile" style="display:none">
+        <div class="hint">Select a <code>.json</code> file exported from a scrape run.</div>
+        <input type="file" id="fileIn" accept=".json,application/json" style="padding:20px;border:1px dashed var(--line);border-radius:9px;width:100%">
+      </div>
+
+      <div id="tabRaw" style="display:none">
+        <div class="hint">
+          Paste raw post text copied straight out of Telegram — one post per block, blank line
+          between posts. IDs and timestamps get generated for you.
+        </div>
+        <textarea id="rawIn" placeholder="🚨 Chelsea have reached full agreement…&#10;&#10;🔴 Liverpool injury update…" spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="Modal.close()">Cancel</button>
+      <button class="btn pri" onclick="Ingest.run()">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- manage modal -->
+<div class="ov" id="ovManage" onclick="if(event.target===this)Modal.close()">
+  <div class="modal" style="max-width:480px">
+    <div class="mh"><h3>Data</h3></div>
+    <div class="mb">
+      <div class="hint" id="dataStats"></div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <button class="btn" onclick="Store.export()">Export all posts as JSON</button>
+        <button class="btn" onclick="Engine.reprocessAll()">Re-run classifier on all posts</button>
+        <button class="btn" onclick="Store.loadSeed()">Restore the 27 Jul starter posts</button>
+        <button class="btn" style="color:#ff8080;border-color:#4a2626" onclick="Store.wipe()">Delete everything</button>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="Modal.close()">Done</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA — clubs (top 5 leagues + transfer-active rest of world)
+   format:  Name | League | aliases (semicolon sep) | colour
+   ============================================================ */
+const CLUB_SRC = `
+Arsenal|PL|AFC;Gunners|#EF0107
+Aston Villa|PL|Villa;AVFC|#95BFE5
+Bournemouth|PL|AFC Bournemouth;Cherries|#DA291C
+Brentford|PL|Bees|#E30613
+Brighton|PL|Brighton & Hove Albion;Brighton and Hove Albion;Seagulls;BHAFC|#0057B8
+Burnley|PL|Clarets|#6C1D45
+Chelsea|PL|CFC;Blues|#034694
+Crystal Palace|PL|Palace;CPFC;Eagles|#1B458F
+Everton|PL|EFC;Toffees|#003399
+Fulham|PL|FFC;Cottagers|#CC0000
+Leeds United|PL|Leeds;LUFC|#FFCD00
+Liverpool|PL|LFC;Reds|#C8102E
+Manchester City|PL|Man City;MCFC;Citizens;#MCFC|#6CABDD
+Manchester United|PL|Man United;Man Utd;United;MUFC;Red Devils|#DA291C
+Newcastle United|PL|Newcastle;NUFC;Magpies;Toon|#241F20
+Nottingham Forest|PL|Forest;NFFC|#DD0000
+Sunderland|PL|SAFC;Black Cats|#EB172B
+Tottenham|PL|Tottenham Hotspur;Spurs;THFC|#132257
+West Ham|PL|West Ham United;Hammers;WHUFC|#7A263A
+Wolves|PL|Wolverhampton;Wolverhampton Wanderers;WWFC|#FDB913
+Alaves|LL|Deportivo Alaves;Alavés|#0761AF
+Athletic Club|LL|Athletic Bilbao;Athletic|#EE2523
+Atletico Madrid|LL|Atlético Madrid;Atleti;Atletico;Atlético|#CB3524
+Barcelona|LL|Barca;Barça;FC Barcelona;FCB;Blaugrana|#A50044
+Celta Vigo|LL|Celta|#8AC3EE
+Elche|LL|Elche CF|#00913F
+Espanyol|LL|RCD Espanyol|#0072BC
+Getafe|LL|Getafe CF|#005999
+Girona|LL|Girona FC|#CD2534
+Levante|LL|Levante UD|#003DA5
+Mallorca|LL|RCD Mallorca|#E20613
+Osasuna|LL|CA Osasuna|#D91A21
+Rayo Vallecano|LL|Rayo|#E53027
+Real Betis|LL|Betis|#00954C
+Real Madrid|LL|Madrid;RMFC;Los Blancos|#FEBE10
+Real Oviedo|LL|Oviedo|#004B93
+Real Sociedad|LL|La Real;Sociedad|#0067B1
+Sevilla|LL|Sevilla FC|#D0021B
+Valencia|LL|Valencia CF;Los Che|#F4A100
+Villarreal|LL|Yellow Submarine|#FFE667
+Atalanta|SA|La Dea|#1D71B8
+Bologna|SA|Rossoblu|#1A2F48
+Cagliari|SA|Casteddu|#B01B2E
+Como|SA|Como 1907|#004C97
+Cremonese|SA|Cremo|#C8102E
+Fiorentina|SA|Viola|#592C82
+Genoa|SA|Grifone|#B3122A
+Hellas Verona|SA|Verona|#FFEB00
+Inter|SA|Inter Milan;Internazionale;Nerazzurri|#0068A8
+Juventus|SA|Juve;Bianconeri|#000000
+Lazio|SA|Biancocelesti|#87D8F7
+Lecce|SA|US Lecce|#F2C300
+Milan|SA|AC Milan;Rossoneri|#FB090B
+Napoli|SA|Partenopei|#12A0D7
+Parma|SA|Crociati|#FFD700
+Pisa|SA|Pisa SC|#0B2C5C
+Roma|SA|AS Roma;Giallorossi|#8E1F2F
+Sassuolo|SA|Neroverdi|#00A752
+Torino|SA|Toro;Granata|#881600
+Udinese|SA|Zebrette|#000000
+Augsburg|BL|FC Augsburg|#BA3733
+Bayer Leverkusen|BL|Leverkusen;Bayer 04|#E32221
+Bayern Munich|BL|Bayern;FC Bayern;Bayern München|#DC052D
+Borussia Dortmund|BL|Dortmund;BVB|#FDE100
+Borussia Monchengladbach|BL|Gladbach;Mönchengladbach;Borussia Mönchengladbach|#000000
+Eintracht Frankfurt|BL|Frankfurt;Eintracht|#E1000F
+FC Koln|BL|Koln;Köln;Cologne;1. FC Köln|#ED1C24
+Freiburg|BL|SC Freiburg|#000000
+Hamburger SV|BL|Hamburg;HSV|#0A3A6E
+Heidenheim|BL|1. FC Heidenheim|#E30613
+Hoffenheim|BL|TSG Hoffenheim|#1C63B7
+Mainz|BL|Mainz 05|#C3141E
+RB Leipzig|BL|Leipzig|#DD0741
+St. Pauli|BL|St Pauli;FC St. Pauli|#65331F
+Stuttgart|BL|VfB Stuttgart|#E32219
+Union Berlin|BL|Union|#EB1923
+Werder Bremen|BL|Bremen;Werder|#1D9053
+Wolfsburg|BL|VfL Wolfsburg|#65B32E
+Angers|L1|Angers SCO|#000000
+Auxerre|L1|AJ Auxerre|#0067B1
+Brest|L1|Stade Brestois|#E2001A
+Le Havre|L1|HAC|#0B4EA2
+Lens|L1|RC Lens|#FFE500
+Lille|L1|LOSC;LOSC Lille|#E01E13
+Lorient|L1|FC Lorient|#F58220
+Lyon|L1|Olympique Lyonnais;OL|#DA020E
+Marseille|L1|Olympique Marseille;OM|#2FAEE0
+Metz|L1|FC Metz|#8E1B33
+Monaco|L1|AS Monaco|#E63946
+Nantes|L1|FC Nantes|#FCD303
+Nice|L1|OGC Nice|#C8102E
+Paris FC|L1|PFC|#004A97
+PSG|L1|Paris Saint-Germain;Paris;Paris SG|#004170
+Rennes|L1|Stade Rennais|#E23138
+Strasbourg|L1|RC Strasbourg|#0066B3
+Toulouse|L1|TFC|#582C83
+Ajax|OTH|AFC Ajax|#D2122E
+PSV|OTH|PSV Eindhoven|#EE2223
+Feyenoord|OTH||#E30613
+AZ Alkmaar|OTH|AZ|#E1001A
+Benfica|OTH|SL Benfica|#E30613
+Porto|OTH|FC Porto|#00428C
+Sporting CP|OTH|Sporting Lisbon;Sporting Clube|#008057
+Braga|OTH|SC Braga|#C0272D
+Celtic|OTH|Celtic FC|#018749
+Rangers|OTH|Glasgow Rangers|#1B458F
+Galatasaray|OTH|Gala|#FDB912
+Fenerbahce|OTH|Fenerbahçe;Fener|#FFED00
+Besiktas|OTH|Beşiktaş|#000000
+Trabzonspor|OTH||#7B1E23
+Olympiacos|OTH|Olympiakos|#D50A0A
+AEK Athens|OTH|AEK|#F5C400
+Panathinaikos|OTH|Panathinaikos FC|#006A44
+Genk|OTH|KRC Genk|#004B93
+Standard Liege|OTH|Standard Liège;Standard|#E30613
+Gent|OTH|KAA Gent|#0057B8
+Schalke 04|OTH|Schalke|#004D9D
+Hertha Berlin|OTH|Hertha;Hertha BSC|#005CA9
+Fortuna Dusseldorf|OTH|Fortuna Düsseldorf|#E30613
+Nurnberg|OTH|Nürnberg;1. FC Nürnberg|#AC1E44
+Hannover 96|OTH|Hannover|#009640
+Karlsruher SC|OTH|Karlsruhe|#005CA9
+Al Gharafa|OTH||#000000
+Al Sadd|OTH||#8B0B2E
+Al Duhail|OTH||#8B0B2E
+Troyes|OTH|ESTAC Troyes|#004B93
+Sturm Graz|OTH||#000000
+Rapid Wien|OTH|Rapid Vienna|#006B3F
+Slavia Prague|OTH|Slavia Praha|#E30613
+Sparta Prague|OTH|Sparta Praha|#8B0B2E
+Legia Warsaw|OTH|Legia|#004B93
+Ferencvaros|OTH|Ferencváros|#009640
+Union Saint-Gilloise|OTH|USG;Royale Union|#FFE500
+Atletico Dallas|OTH||#0057B8
+FC Dallas|OTH||#E81F3E
+Austin FC|OTH||#00B140
+Seattle Sounders|OTH|Sounders|#5D9732
+Toronto FC|OTH||#B81137
+Vancouver Whitecaps|OTH|Whitecaps|#00245E
+CF Montreal|OTH|CF Montréal|#0033A1
+Club Brugge|OTH|Brugge|#005CA9
+Anderlecht|OTH|RSC Anderlecht|#4F286D
+Red Bull Salzburg|OTH|Salzburg;RB Salzburg|#D4021D
+Shakhtar Donetsk|OTH|Shakhtar|#F47D30
+Dynamo Kyiv|OTH|Dynamo Kiev|#0057B8
+Al Hilal|OTH||#0055A5
+Al Nassr|OTH||#F5D000
+Al Ittihad|OTH||#000000
+Al Ahli|OTH|Al Ahli Saudi|#00A650
+Al Qadsiah|OTH||#F5C400
+Inter Miami|OTH|Miami|#F7B5CD
+LAFC|OTH|Los Angeles FC|#C39E6D
+LA Galaxy|OTH|Galaxy|#00245D
+Flamengo|OTH||#E30613
+Palmeiras|OTH||#006437
+Corinthians|OTH||#000000
+Sao Paulo|OTH|São Paulo|#E30613
+Santos|OTH|Santos FC|#000000
+Botafogo|OTH||#000000
+Fluminense|OTH||#8B0B2E
+Gremio|OTH|Grêmio|#0D80BF
+Internacional|OTH|Inter Porto Alegre|#E5050F
+Cruzeiro|OTH||#003C8F
+Atletico Mineiro|OTH|Atlético Mineiro|#000000
+River Plate|OTH|River|#E30613
+Boca Juniors|OTH|Boca|#003087
+Leicester|EFL|Leicester City;LCFC;Foxes|#003090
+Southampton|EFL|Saints;SFC|#D71920
+Ipswich|EFL|Ipswich Town|#3A64A3
+Norwich|EFL|Norwich City|#00A650
+Sheffield United|EFL|Sheff Utd;Blades|#EE2737
+West Brom|EFL|West Bromwich Albion;WBA|#122F67
+Middlesbrough|EFL|Boro|#E21B23
+Coventry|EFL|Coventry City|#78D0F3
+Birmingham City|EFL|Birmingham|#0000FF
+Wrexham|EFL|Wrexham AFC|#E30613
+Derby County|EFL|Derby|#000000
+Stoke City|EFL|Stoke|#E03A3E
+Watford|EFL|Watford FC|#FBEE23
+QPR|EFL|Queens Park Rangers|#1D5BA4
+Hull City|EFL|Hull|#F5A12D
+Preston|EFL|Preston North End|#B2B2B2
+Bristol City|EFL|Bristol|#E21A23
+Swansea|EFL|Swansea City|#000000
+Cardiff|EFL|Cardiff City|#0070B5
+Portsmouth|EFL|Pompey|#001489
+Sheffield Wednesday|EFL|Sheff Wed;Owls|#0066B3
+Millwall|EFL||#001D5E
+Blackburn|EFL|Blackburn Rovers|#009EE0
+`;
+
+const LEAGUES = {
+  PL:{n:"Premier League",c:"#3D195B"}, LL:{n:"La Liga",c:"#EE8707"},
+  SA:{n:"Serie A",c:"#0B429B"},        BL:{n:"Bundesliga",c:"#D20515"},
+  L1:{n:"Ligue 1",c:"#DAFB37"},        EFL:{n:"EFL / Championship",c:"#2B6CB0"},
+  OTH:{n:"Rest of world",c:"#4A5568"}
+};
+
+/* ============================================================
+   DATA — notable players.  format:  Name | ClubName | aliases
+   The classifier ALSO detects unknown names heuristically, so
+   this list only needs to cover well-known players to add club
+   context and boost confidence.
+   ============================================================ */
+const PLAYER_SRC = `
+Bukayo Saka|Arsenal|Saka
+Martin Odegaard|Arsenal|Ødegaard;Odegaard
+Declan Rice|Arsenal|Rice
+William Saliba|Arsenal|Saliba
+Gabriel Martinelli|Arsenal|Martinelli
+Kai Havertz|Arsenal|Havertz
+Gabriel Jesus|Arsenal|
+Viktor Gyokeres|Arsenal|Gyökeres;Gyokeres
+Martin Zubimendi|Arsenal|Zubimendi
+Eberechi Eze|Arsenal|Eze
+Cole Palmer|Chelsea|Palmer
+Enzo Fernandez|Chelsea|Enzo Fernández;Enzo
+Moises Caicedo|Chelsea|Moisés Caicedo;Caicedo
+Nicolas Jackson|Chelsea|Jackson
+Levi Colwill|Chelsea|Colwill
+Reece James|Chelsea|
+Joao Pedro|Chelsea|João Pedro
+Estevao Willian|Chelsea|Estêvão;Estevao
+Mohamed Salah|Liverpool|Salah
+Virgil van Dijk|Liverpool|Van Dijk
+Alexis Mac Allister|Liverpool|Mac Allister
+Dominik Szoboszlai|Liverpool|Szoboszlai
+Ryan Gravenberch|Liverpool|Gravenberch
+Alisson|Liverpool|Alisson Becker
+Florian Wirtz|Liverpool|Wirtz
+Hugo Ekitike|Liverpool|Ekitiké;Ekitike
+Alexander Isak|Liverpool|Isak
+Ibrahima Konate|Liverpool|Konaté;Konate
+Erling Haaland|Manchester City|Haaland
+Rodri|Manchester City|
+Phil Foden|Manchester City|Foden
+Bernardo Silva|Manchester City|
+Ruben Dias|Manchester City|Rúben Dias
+Josko Gvardiol|Manchester City|Gvardiol
+Tijjani Reijnders|Manchester City|Reijnders
+Rayan Cherki|Manchester City|Cherki
+Bruno Fernandes|Manchester United|Bruno
+Marcus Rashford|Manchester United|Rashford
+Kobbie Mainoo|Manchester United|Mainoo
+Alejandro Garnacho|Manchester United|Garnacho
+Matthijs de Ligt|Manchester United|De Ligt
+Matheus Cunha|Manchester United|Cunha
+Bryan Mbeumo|Manchester United|Mbeumo
+Benjamin Sesko|Manchester United|Šeško;Sesko
+Alexander Isak|Newcastle United|
+Bruno Guimaraes|Newcastle United|Bruno Guimarães
+Anthony Gordon|Newcastle United|Gordon
+Sandro Tonali|Newcastle United|Tonali
+Nick Woltemade|Newcastle United|Woltemade
+Son Heung-min|Tottenham|Son
+James Maddison|Tottenham|Maddison
+Dejan Kulusevski|Tottenham|Kulusevski
+Cristian Romero|Tottenham|Romero
+Micky van de Ven|Tottenham|Van de Ven
+Mohammed Kudus|Tottenham|Kudus
+Xavi Simons|Tottenham|Simons
+Ollie Watkins|Aston Villa|Watkins
+Morgan Rogers|Aston Villa|Rogers
+Emiliano Martinez|Aston Villa|Emi Martinez;Emiliano Martínez
+Jarrod Bowen|West Ham|Bowen
+Lucas Paqueta|West Ham|Paquetá;Paqueta
+Matheus Nunes|Manchester City|
+Eberechi Eze|Crystal Palace|
+Marc Guehi|Crystal Palace|Guéhi;Guehi
+Jean-Philippe Mateta|Crystal Palace|Mateta
+Adam Wharton|Crystal Palace|Wharton
+Kylian Mbappe|Real Madrid|Mbappé;Mbappe
+Jude Bellingham|Real Madrid|Bellingham
+Vinicius Junior|Real Madrid|Vinícius;Vinicius Jr;Vini Jr
+Rodrygo|Real Madrid|
+Federico Valverde|Real Madrid|Valverde
+Aurelien Tchouameni|Real Madrid|Tchouaméni;Tchouameni
+Eduardo Camavinga|Real Madrid|Camavinga
+Thibaut Courtois|Real Madrid|Courtois
+Antonio Rudiger|Real Madrid|Rüdiger;Rudiger
+Arda Guler|Real Madrid|Güler;Guler
+Trent Alexander-Arnold|Real Madrid|Trent;Alexander-Arnold
+Dean Huijsen|Real Madrid|Huijsen
+Franco Mastantuono|Real Madrid|Mastantuono
+Lamine Yamal|Barcelona|Yamal
+Robert Lewandowski|Barcelona|Lewandowski
+Pedri|Barcelona|
+Gavi|Barcelona|
+Raphinha|Barcelona|
+Frenkie de Jong|Barcelona|De Jong
+Pau Cubarsi|Barcelona|Cubarsí;Cubarsi
+Marc-Andre ter Stegen|Barcelona|Ter Stegen
+Ronald Araujo|Barcelona|Araújo;Araujo
+Marcus Rashford|Barcelona|
+Julian Alvarez|Atletico Madrid|Julián Álvarez;Alvarez
+Antoine Griezmann|Atletico Madrid|Griezmann
+Jan Oblak|Atletico Madrid|Oblak
+Alexander Sorloth|Atletico Madrid|Sørloth;Sorloth
+Nico Williams|Athletic Club|Nico Williams
+Inaki Williams|Athletic Club|Iñaki Williams
+Isco|Real Betis|
+Antony|Real Betis|
+Lautaro Martinez|Inter|Lautaro;Lautaro Martínez
+Marcus Thuram|Inter|Thuram
+Nicolo Barella|Inter|Barella
+Alessandro Bastoni|Inter|Bastoni
+Hakan Calhanoglu|Inter|Çalhanoğlu;Calhanoglu
+Rafael Leao|Milan|Leão;Leao
+Christian Pulisic|Milan|Pulisic
+Theo Hernandez|Milan|Theo Hernández
+Mike Maignan|Milan|Maignan
+Luka Modric|Milan|Modrić;Modric
+Dusan Vlahovic|Juventus|Vlahović;Vlahovic
+Kenan Yildiz|Juventus|Yıldız;Yildiz
+Federico Gatti|Juventus|Gatti
+Jonathan David|Juventus|
+Khvicha Kvaratskhelia|PSG|Kvaratskhelia;Kvara
+Victor Osimhen|Galatasaray|Osimhen
+Scott McTominay|Napoli|McTominay
+Romelu Lukaku|Napoli|Lukaku
+Kevin De Bruyne|Napoli|De Bruyne
+Paulo Dybala|Roma|Dybala
+Ademola Lookman|Atalanta|Lookman
+Harry Kane|Bayern Munich|Kane
+Jamal Musiala|Bayern Munich|Musiala
+Michael Olise|Bayern Munich|Olise
+Joshua Kimmich|Bayern Munich|Kimmich
+Manuel Neuer|Bayern Munich|Neuer
+Alphonso Davies|Bayern Munich|Davies
+Dayot Upamecano|Bayern Munich|Upamecano
+Luis Diaz|Bayern Munich|Luis Díaz
+Nick Woltemade|Bayern Munich|
+Serhou Guirassy|Borussia Dortmund|Guirassy
+Karim Adeyemi|Borussia Dortmund|Adeyemi
+Jobe Bellingham|Borussia Dortmund|Jobe
+Xavi Simons|RB Leipzig|
+Benjamin Sesko|RB Leipzig|
+Ousmane Dembele|PSG|Dembélé;Dembele
+Vitinha|PSG|
+Joao Neves|PSG|João Neves
+Achraf Hakimi|PSG|Hakimi
+Gianluigi Donnarumma|Manchester City|Donnarumma
+Bradley Barcola|PSG|Barcola
+Desire Doue|PSG|Désiré Doué;Doue
+Warren Zaire-Emery|PSG|Zaïre-Emery;Zaire-Emery
+Lucas Chevalier|PSG|Chevalier
+Mason Greenwood|Marseille|Greenwood
+Rayan Cherki|Lyon|
+Cristiano Ronaldo|Al Nassr|Ronaldo;CR7
+Karim Benzema|Al Ittihad|Benzema
+Neymar|Santos|Neymar Jr
+Lionel Messi|Inter Miami|Messi
+Sadio Mane|Al Nassr|Mané;Mane
+Riyad Mahrez|Al Ahli|Mahrez
+Rodrygo Goes|Real Madrid|
+Nuno Mendes|PSG|
+Illia Zabarnyi|PSG|Zabarnyi
+Marc-Andre ter Stegen|Barcelona|
+Joan Garcia|Barcelona|Joan García
+Wojciech Szczesny|Barcelona|Szczęsny;Szczesny
+`;
+
+/* ---- managers (so "Arteta", "Guardiola" resolve to clubs) ---- */
+const MANAGER_SRC = `
+Mikel Arteta|Arsenal|Arteta
+Pep Guardiola|Manchester City|Guardiola;Pep
+Arne Slot|Liverpool|Slot
+Enzo Maresca|Chelsea|Maresca
+Ruben Amorim|Manchester United|Amorim
+Thomas Frank|Tottenham|
+Eddie Howe|Newcastle United|Howe
+Unai Emery|Aston Villa|Emery
+Oliver Glasner|Crystal Palace|Glasner
+Xabi Alonso|Real Madrid|Xabi
+Hansi Flick|Barcelona|Flick
+Diego Simeone|Atletico Madrid|Simeone;Cholo
+Antonio Conte|Napoli|Conte
+Cristian Chivu|Inter|Chivu
+Massimiliano Allegri|Milan|Allegri
+Igor Tudor|Juventus|Tudor
+Gian Piero Gasperini|Roma|Gasperini
+Vincent Kompany|Bayern Munich|Kompany
+Niko Kovac|Borussia Dortmund|Kovač;Kovac
+Luis Enrique|PSG|
+Roberto De Zerbi|Marseille|De Zerbi
+`;
+/* ============================================================
+   INDEX BUILD
+   ============================================================ */
+const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+const slug = s => norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+
+const CLUBS = [], CLUB_BY_ID = {}, ALIAS = new Map();
+CLUB_SRC.trim().split("\n").forEach(line=>{
+  const [name,league,al,colour] = line.split("|");
+  const id = slug(name);
+  const aliases = [name, ...(al||"").split(";").filter(Boolean)];
+  const c = {id,name,league,colour:colour||"#4A5568",aliases};
+  CLUBS.push(c); CLUB_BY_ID[id]=c;
+  aliases.forEach(a=>{ const k=norm(a); if(!ALIAS.has(k)) ALIAS.set(k,{type:"club",id}); });
+});
+
+const PEOPLE = [], PERSON_BY_ID = {};
+function addPerson(line, role){
+  const [name,club,al] = line.split("|");
+  const id = slug(name);
+  if(PERSON_BY_ID[id]){ // same name, second club entry -> keep both clubs
+    const p = PERSON_BY_ID[id];
+    if(club && !p.clubs.includes(slug(club))) p.clubs.push(slug(club));
+    return;
+  }
+  const aliases = [name, ...(al||"").split(";").filter(Boolean)];
+  const p = {id,name,role,clubs:club?[slug(club)]:[],aliases};
+  PEOPLE.push(p); PERSON_BY_ID[id]=p;
+  aliases.forEach(a=>{ const k=norm(a); if(!ALIAS.has(k)) ALIAS.set(k,{type:"person",id}); });
+}
+PLAYER_SRC.trim().split("\n").forEach(l=>addPerson(l,"player"));
+MANAGER_SRC.trim().split("\n").forEach(l=>addPerson(l,"manager"));
+
+// longest aliases first so "Manchester United" beats "United"
+const ALIAS_KEYS = [...ALIAS.keys()].sort((a,b)=>b.length-a.length);
+
+/* ============================================================
+   CATEGORY + STAGE VOCABULARY
+   ============================================================ */
+const CATS = {
+  transfer:{n:"Transfer",  c:"var(--acc2)",   bg:"#16304d", fg:"#8ec5ff"},
+  loan:    {n:"Loan",      c:"#f59e0b",       bg:"#3a2c10", fg:"#ffd28a"},
+  contract:{n:"Contract",  c:"var(--contract)",bg:"#0f3742", fg:"#7fe6f5"},
+  injury:  {n:"Injury",    c:"var(--injury)", bg:"#3d1717", fg:"#ff9c9c"},
+  manager: {n:"Manager",   c:"var(--manager)",bg:"#3a1740", fg:"#f0a8fb"},
+  agent:   {n:"Agent",     c:"#94a3b8",       bg:"#1f2732", fg:"#b9c6d6"},
+  exit:    {n:"Exit",      c:"var(--exit)",   bg:"#3d2410", fg:"#ffbe8a"},
+  other:   {n:"General",   c:"var(--tx3)",    bg:"#1e242e", fg:"#a6b3c4"}
+};
+
+const STAGES = [
+  {id:"rumour",  n:"Rumour",   c:"var(--rumour)"},
+  {id:"talks",   n:"Talks",    c:"var(--talks)"},
+  {id:"advanced",n:"Advanced", c:"var(--advanced)"},
+  {id:"agreed",  n:"Agreed",   c:"var(--agreed)"},
+  {id:"medical", n:"Medical",  c:"var(--medical)"},
+  {id:"herewego",n:"HERE WE GO",c:"var(--hwg)"},
+  {id:"official",n:"Official", c:"var(--official)"}
+];
+const STAGE_BY_ID = Object.fromEntries(STAGES.map((s,i)=>[s.id,{...s,rank:i}]));
+
+// ordered low -> high; last match wins
+const STAGE_RULES = [
+  ["rumour",  [/\binterested in\b/,/\bshowing interest\b/,/\binterest (?:from|in)\b/,/\bmonitoring\b/,/\bon the (?:short)?list\b/,/\bhigh on the shortlist\b/,/\bappreciate[sd]?\b/,/\btargeting\b/,/\bconsidering\b/,/\bexplor(?:e|ed|ing)\b/,/\bas (?:an )?option\b/,/\basked for infos?\b/,/\bidea\b/,/\bcandidate\b/,/\bkeeping tabs\b/,/\bscouting\b/,/\benquir/,/\bnot in advanced\b/,/\bapproach made\b/,/\bearly stages\b/,/\bkeen on\b/,/\battentive to\b/]],
+  ["talks",   [/\bin talks\b/,/\btalks with\b/,/\btalks\b[^.!?]{0,45}\b(?:ongoing|underway|continu)/,/\bnegotiations?\b[^.!?]{0,45}\b(?:ongoing|underway|continu)/,/\bpushing to (?:sign|complete|get|land)\b/,/\bworking on\b/,/\bopened (?:\w+ )?talks\b/,/\bcontract talks\b/,/\bdirect contacts?\b/,/\bdiscussions?\b/,/\bbid\b/,/\boffer (?:made|submitted|sent|rejected|turned down)\b/,/\bproposal\b/,/\bapproach(?:ed)?\b/,/\bformal (?:bid|offer)\b/,/\bnew bid\b/,/\blead(?:ing)? (?:the )?race\b/,/\bin (?:the )?race\b/,/\bahead in (?:the )?race\b/,/\bdirect meeting\b/,/\bmeeting with\b/,/\btry (?:to )?advance\b/,/\bset to (?:meet|discuss|approach)\b/,/\bopen talks\b/,/\bset to approach\b/,/\bwant him\b/]],
+  ["advanced",[/\badvanced (?:talks|negotiations|stages?)\b/,/\bfinal (?:stages|details|steps)\b/,/\bclose to (?:sign|join|agree|complet|seal)/,/\bgetting closer\b/,/\bverbal agreement\b/,/\bon the verge\b/,/\bnearly done\b/,/\bstep(?:s)? away\b/,/\bpositive (?:talks|negotiations)\b/,/\bworking on (?:the )?final\b/,/\bclosing in on\b/,/\bfinal details\b/]],
+  ["agreed",  [/\bagreement (?:reached|in place|found)\b/,/\bfull (?:verbal )?agreement\b/,/\bdeal (?:agreed|reached|in place|is done|closed)\b/,/\breached (?:full |total )?agreement\b/,/\bpersonal terms (?:agreed|sorted|done)\b/,/\bterms agreed\b/,/\bgreen light\b/,/\bhave agreed\b/,/\bhas agreed\b/,/\baccepted the (?:bid|offer|proposal)\b/,/\bbid accepted\b/,/\bagreed (?:a )?(?:fee|deal|package)\b/,/\bagree[ds]?\b[^.!?]{0,32}\b(?:package|fee|deal|terms)\b/,/\bagree[ds]?\s+(?:a |the |on )?[€£$]/,/\bcontracts? (?:being )?(?:prepared|exchanged|signed)\b/,/\bdocuments (?:signed|being signed|ready)\b/,/\bagreement (?:being |is )?final(?:ised|ized|is|iz)/,/\bagreement in principle\b/,/\bapproval on contract terms\b/,/\ball done\b/,/\ball parties\b/]],
+  ["medical", [/\bmedical (?:scheduled|booked|planned|set|on|today|tomorrow|completed|passed|done|tests|at|in)\b/,/\bundergo(?:ing)? (?:the |a )?medical\b/,/\bset for (?:the )?medical\b/,/\bcompleted (?:his|her|the) medical\b/,/\bfor (?:the )?medical\b/,/\b(?:travelling|traveling|flying|flies|travels|fly) to\b/,/\bset to fly\b/,/\bwill travel\b/,/\bnow travelling\b/,/\bin town\b/,/\barriv(?:al|ing|es|ed)\b/,/\bset to sign\b/,/\bexpected to sign\b/,/\bwill sign\b/,/\bready to sign\b/,/\bland(?:ed|ing)? in\b/,/\bformal steps\b/,/\bsignatures expected\b/,/\bfor signatures\b/,/\bcontract signing\b/]],
+  ["herewego",[/here we go/i,/\bhwg\b/i]],
+  ["official",[/\bofficial(?:ly)?\b(?!\s+(?:proposal|bid|offer|note|approach|statement|website|account|talks))/,/(?<!\bnot\s)(?<!\bnever\s)(?<!\byet\s)\bconfirmed\b/,/\bappointed\b/,/\bunveil/,/\bhas (?:now )?signed\b/,/\bhave (?:now )?signed\b/,/\bhas joined\b/,/\bjoins\b/,/\bhave completed\b/,/\bcompleted the (?:signing|transfer|move|deal)\b/,/\bdone deal\b/,/\bannounce[sd]?\b/,/\bunveiled\b/,/\bsigning announced\b/,/\bwelcome\b/,/\bit'?s done\b/,/\bnew (?:\w+ )?player\b/,/\bhere he is\b/,/\bsigned (?:a|the) (?:new )?(?:contract|deal)\b/,/\bpaperwork (?:completed|signed)\b/]]
+];
+
+/* unambiguous signals, checked before the general rules below.
+   stops "contract until 2032" inside a HERE WE GO from being filed as a renewal */
+const STRONG_INJURY = [/\bout for (?:the )?(?:next |around |about )?\d+[\s-](?:week|month|day)/,/\bruled out\b/,/\bout for the season\b/,/\bacl\b/,/\bcruciate\b/,/\btorn\b/,/\bunderwent surgery\b/,/\bwill undergo (?:an? )?(?:operation|surgery)\b/,/\bscans? (?:confirmed|revealed|showed)\b/,/\bhamstring (?:injury|strain|problem)\b/,/\bmuscle (?:injury|strain|problem)\b/,/\bsidelined\b/,/\bwill miss\b/,/\binjury (?:blow|update|news)\b/];
+const STRONG_TRANSFER = [/here we go/i,/\bcompleted the (?:signing|transfer|move)\b/,/\bcomplete the (?:signing|transfer|move)\b/,/\breached (?:full |total )?agreement with .{1,40}\bfor\b/,/\bsigning of\b/,/\bjoins? .{1,30}\bfrom\b/,/\bsigns? for\b/,/\bmedical (?:scheduled|booked|completed|passed|today|tomorrow|tests)\b/,/\bbid (?:for|submitted|accepted|rejected)\b/,/\boffer (?:for|made|accepted|rejected)\b/,/\bfull agreement\b/,/\btransfer fee\b/,/\badd[- ]?ons\b/,/\bjoin(?:s|ing)? as (?:a )?free agent\b/,/\bon a free transfer\b/,/\bmedical tests\b/];
+/* "no plans to part ways" — a staying story, not an injury or exit story */
+const STAY_SIGNALS = [/\bno plans to (?:part ways|leave|sell)\b/,/\bwill stay\b/,/\bnot for sale\b/,/\bstaying at\b/,/\bno negotiations\b/,/\bare not confirmed\b/,/\bnot in advanced\b/];
+/* loan language that is being NEGATED doesn't make it a loan story */
+const loanish = t => /\bloan\b/i.test(t)
+                  && !/\b(?:no|not|doesn[’'`]?t|does not|won[’'`]?t|will not|never|against|rule[sd]? out)\b(?:\s+\S+){0,6}\s+loan/i.test(t);
+/* someone leaving on a free is an exit, even though "free transfer" looks like a signing */
+const STRONG_EXIT = [/\b(?:will |could |can )?leav(?:e|ing) .{0,25}\bon a free\b/,/\bleave (?:the club )?on a free\b/,/\bavailable as (?:a )?free agent\b/,/\bexits? under consideration\b/];
+/* ...unless a buying club is clearly named — then it's a transfer story */
+const DESTINATION_NAMED = [/\brace to sign\b/,/\blead(?:ing)? (?:the )?race\b/,/\bahead in (?:the )?race\b/,/\bset to sign\b/,/\bagreed? .{0,20}to sign\b/,/\bclosing in on\b/,/\bhere we go\b/i];
+
+const CAT_RULES = [
+  ["injury",  [/\bis injured\b/,/\bhas been injured\b/,/\bpicked up an? .{0,18}injury\b/,/\bsuffered an? .{0,22}injury\b/,/\binjury (?:blow|update|news|problem|issue|concern|setback)\b/,/\bacl\b/,/\bhamstring\b/,/\bmuscle (?:injury|problem|issue|strain)\b/,/\bcruciate\b/,/\bmeniscus\b/,/\bruled out\b/,/\bsidelined\b/,/\bout for\b/,/\bsurgery\b/,/\boperation\b/,/\bscans?\b/,/\bfitness (?:test|update)\b/,/\bstrain(?:ed)?\b/,/\bknock\b/,/\bmedical staff\b/,/\brecovery\b/,/\bback in training\b/,/\bwill miss\b/,/\bmisses? the\b/,/\bfractur/,/\btorn\b/,/\bligament/,/\bankle (?:injury|problem|issue)\b/,/\bknee (?:injury|problem|issue)\b/,/\bthigh\b/,/\bcalf\b/,/\bgroin\b/,/\bconcussion\b/,/\bstretcher\b/,/\bsubstituted (?:off )?(?:with|due)\b/]],
+  ["manager", [/\bnew (?:head coach|manager|boss)\b/,/\bas .{0,32}(?:head coach|manager|boss)\b/,/\bnational team (?:head )?coach\b/,/\bmanagerial\b/,/\bsacked\b/,/\bdismissed\b/,/\brelieved of (?:his |her )?duties\b/,/\bappointed\b/,/\bappointment\b/,/\bcaretaker\b/,/\binterim (?:manager|boss|coach)\b/,/\bleaves the club as (?:manager|coach)\b/,/\bstep(?:s|ped)? down\b/,/\bcoaching staff\b/]],
+  ["contract",[/\bnew (?:contract|deal|terms)\b/,/\bcontract (?:extension|renewal|talks|expiry|expires|situation|until)\b/,/\brenew(?:al|ed|ing)?\b/,/\bextend(?:ed|ing|s)? (?:his|her|the) (?:contract|deal|stay)\b/,/\bsigns? (?:a )?new\b/,/\bcommit(?:s|ted)? (?:his|her) future\b/,/\bfuture at the club\b/,/\bpay rise\b/,/\bnew (?:one|two|three|four|five)[\s-]year deal\b/,/\bunveil (?:his|her|the) new contract\b/]],
+  ["agent",   [/\bnew agency\b/,/\bagency to represent\b/,/\bsigned with .{0,40}\b(?:agency|sports|management)\b/,/\bhas picked .{0,30}as new agenc/,/\bnew representatives\b/,/\bchanged agents?\b/,/\bswitched agenc/]],
+  ["loan",    [/\bloan\b/,/\bloaned\b/,/\bon loan\b/,/\btemporary (?:deal|move)\b/,/\bloan with (?:an? )?(?:option|obligation)\b/]],
+  ["exit",    [/\bout of contract\b/,/\b(?:available|leave|leaving|released|becomes?|now|is a|as a) (?:as )?(?:a )?free agent\b/,/\bexits? under consideration\b/,/\bnot untouchable\b/,/\bopen to (?:exits?|leaving)\b/,/\bcontract (?:terminated|termination)\b/,/\bterminated with\b/,/\bmutual (?:consent|agreement) to (?:terminate|end)\b/,/\breleased by\b/,/\bwill leave (?:the club )?(?:on|as|at)\b/,/\bleaving the club\b/,/\bfarewell\b/,/\bgoodbye\b/,/\bdeparture confirmed\b/,/\bexit confirmed\b/,/\bout of contract\b/,/\bwon'?t be (?:renewed|extended)\b/]],
+  ["transfer",[/\btransfer\b/,/\bsign(?:s|ed|ing)?\b/,/\bjoin(?:s|ed|ing)?\b/,/\bmove (?:to|for)\b/,/\bbid\b/,/\boffer\b/,/\bfee\b/,/\bdeal\b/,/\bagreement\b/,/\btalks\b/,/\bmedical\b/,/\bhere we go\b/i,/\bnegotiations\b/,/\brelease clause\b/,/\badd[- ]?ons\b/,/\bpackage\b/,/\bswoop\b/,
+               /\binterested in\b/,/\binterest (?:from|in)\b/,/\brace (?:for|to sign)\b/,/\bapproach\b/,/\bkeen on\b/,/\bexplor(?:e|ed|ing)\b/,/\bmonitoring\b/,/\btargeting\b/,/\bwants?\b/,/\basking (?:price|for)\b/,/\benquir/,/\bcontacts?\b/,/\bpersonal terms\b/,/\badvanced\b/,/\bpriority\b/,/\bshortlist\b/,/\bsummer window\b/,/\bmove to\b/,/\bbuy\b/,/\bproposals?\b/,/\bformula\b/,/\bprice\b/]]
+];
+
+/* the order categories are tested in — most specific first */
+const CAT_ORDER = ["injury","exit","agent","manager","loan","contract","transfer"];
+const CAT_MAP = Object.fromEntries(CAT_RULES);
+
+/* stop-list: capitalised words that are never player names */
+const STOP = new Set(`here we go official confirmed understand deal agreement contract medical personal terms green light done full total new more also talks negotiations player club both clubs sources story update breaking exclusive statement release clause loan option obligation buy fee add ons contacts bid offer proposal yes no now then after before following despite while although however but and the this that these those it he she they his her their there when where what why how all some any one two three first second third last next final still never always everything nothing transfer window summer winter season squad team manager coach head boss director sporting president owner agent agents board training camp stadium salary wages bonus signing target priority interest move switch return debut injury surgery scan scans recovery weeks months days excl exclusive breaking hwg done usl mls uefa fifa u19 u21 u23 net gross agency sports management representatives resign statement note race january february march april may june july august september october november december monday tuesday wednesday thursday friday saturday sunday premier league champions europa conference world cup euro euros copa america libertadores serie bundesliga ligue liga fa carabao efl nations super england spain italy germany france brazil argentina portugal netherlands holland belgium croatia uruguay nigeria ghana senegal morocco japan korea usa saudi arabia turkey greece scotland wales ireland sweden norway denmark poland ukraine russia austria switzerland serbia colombia mexico canada australia egypt algeria cameroon ivory coast mali ecuador chile peru paraguay venezuela georgia hungary czech slovakia slovenia romania bulgaria finland iceland israel iran china india qatar emirates dubai goalkeeper defender midfielder forward striker winger left right centre center back wing side game match fixture goal goals assist assists minutes appearance appearances contract-until european uefa fifa premier-league on off up down out in over under between about against toward towards during since until per via etc mr sir dr`.split(/\s+/));
+
+const PARTICLES = new Set(["de","del","della","van","von","der","den","dos","da","di","el","al","bin","ter","te","op","du","la","le"]);
+
+/* ============================================================
+   THE CLASSIFIER
+   ============================================================ */
+const Engine = {
+
+  /* ---- clean text for matching (keep original for display) ---- */
+  clean(t){
+    return t
+      .replace(/https?:\/\/\S+/g," ")
+      .replace(/[\u{1F1E6}-\u{1F1FF}]/gu," ")          // flags
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{2B00}-\u{2BFF}]/gu," ") // emoji
+      .replace(/\s+/g," ").trim();
+  },
+
+  /* ---- category ---- */
+  category(low){
+    // unambiguous signals win outright
+    if(STRONG_INJURY.some(r=>r.test(low))) return "injury";
+    if(STRONG_EXIT.some(r=>r.test(low)) && !DESTINATION_NAMED.some(r=>r.test(low))) return "exit";
+    // "no plans to part ways" stories mention injuries and exits but are neither
+    const staying = STAY_SIGNALS.some(r=>r.test(low));
+    if(STRONG_TRANSFER.some(r=>r.test(low))) return loanish(low) ? "loan" : "transfer";
+    if(staying) return "transfer";
+    for(const cat of CAT_ORDER){
+      if(cat==="loan" && !loanish(low)) continue;      // "no door to loan moves" isn't a loan
+      if(CAT_MAP[cat].some(r=>r.test(low))) return cat;
+    }
+    return "other";
+  },
+
+  /* ---- deal stage (highest matching rung wins) ---- */
+  stage(low, cat){
+    if(cat==="injury") return null;
+    let best=null;
+    for(const [st,rules] of STAGE_RULES){
+      if(rules.some(r=>r.test(low))) best=st;
+    }
+    // "here we go" always outranks a stray "official"
+    if(/here we go/i.test(low)) best="herewego";
+    return best;
+  },
+
+  /* ---- entity extraction ---- */
+  entities(text){
+    const low = " "+norm(text)+" ";
+    const consumed = [];              // [start,end] in the normalised string
+    const clubs = [], people = [];
+    const overlaps = (s,e)=>consumed.some(([a,b])=>s<b&&e>a);
+
+    for(const key of ALIAS_KEYS){
+      if(key.length<3) continue;
+      const ent = ALIAS.get(key);
+      const re = new RegExp("(^|[^a-z0-9])"+key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"([^a-z0-9]|$)","g");
+      let m;
+      while((m=re.exec(low))!==null){
+        const s = m.index+m[1].length, e = s+key.length;
+        if(overlaps(s,e)){ re.lastIndex=e; continue; }
+        consumed.push([s,e]);
+        if(ent.type==="club"){ if(!clubs.find(c=>c.id===ent.id)) clubs.push({id:ent.id,at:s}); }
+        else { if(!people.find(p=>p.id===ent.id)) people.push({id:ent.id,at:s,known:true}); }
+        re.lastIndex = e;
+      }
+    }
+
+    /* heuristic: unknown multi-word names in the ORIGINAL cased text */
+    const guesses = [];
+    const toks = text.split(/(\s+)/);
+    let run=[];
+    const tc = w => /^\p{Lu}+$/u.test(w) ? w[0]+w.slice(1).toLowerCase() : w;   // YAN -> Yan
+    const flush=()=>{
+      while(run.length && PARTICLES.has(run[run.length-1].toLowerCase())) run.pop();
+      if(run.length>=2 && run.length<=4){
+        const nm = run.map(tc).join(" ");
+        const n = norm(nm);
+        if(!ALIAS.has(n) && !guesses.includes(nm) && !/^\d/.test(nm)) guesses.push(nm);
+      }
+      run=[];
+    };
+    for(const raw of toks){
+      const t = raw.trim();
+      if(!t){ continue; }
+      const w = t.replace(/^[^\p{L}]+|[^\p{L}'’-]+$/gu,"").replace(/[’']s$/,"");
+      if(!w){ flush(); continue; }
+      const lw = w.toLowerCase();
+      // normal case (Bukayo) OR shouted all-caps (DIOMANDE) — Romano writes both
+      const isName = /^\p{Lu}/u.test(w) && !STOP.has(lw) && w.length>1
+                     && (/\p{Ll}/u.test(w) || (/^\p{Lu}[\p{Lu}'’-]+$/u.test(w) && w.length>=3));
+      const isPart = PARTICLES.has(lw) && run.length>0;
+      if(isName || isPart){ run.push(w); }
+      else { flush(); }
+      if(/[.,;:!?)]$/.test(t)) flush();
+    }
+    flush();
+
+    // drop guesses that are substrings of / contain a known entity or club
+    const filtered = guesses.filter(g=>{
+      const n = norm(g);
+      if(ALIAS_KEYS.some(k=>k.length>3 && (n.includes(k)||k.includes(n)))) return false;
+      return true;
+    });
+
+    return {
+      clubs: clubs.sort((a,b)=>a.at-b.at),
+      people: people.sort((a,b)=>a.at-b.at),
+      guesses: filtered.slice(0,4)
+    };
+  },
+
+  /* ---- who is buying / who is selling ---- */
+  roles(text, clubs){
+    const low = norm(text);
+    const role = {};
+    const findAfter = (patterns, r)=>{
+      for(const p of patterns){
+        const re = new RegExp(p, "g"); let m;
+        while((m=re.exec(low))!==null){
+          const tail = low.slice(m.index+m[0].length, m.index+m[0].length+40);
+          for(const c of clubs){
+            if(role[c.id]) continue;
+            const cl = CLUB_BY_ID[c.id];
+            if(cl.aliases.some(a=>tail.trimStart().startsWith(norm(a)))){ role[c.id]=r; break; }
+          }
+        }
+      }
+    };
+    // destination first so an explicit "joins X" is never overwritten
+    findAfter([/\bjoins?\s+/,/\bjoining\s+/,/\bmove to\s+/,/\bmoving to\s+/,/\bsigns? for\s+/,/\bto join\s+/,/\bheading to\s+/,/\bnew (?:\w+\s+)?(?:player|signing) (?:at|for)\s+/,/\bwelcome to\s+/,/\btransfer to\s+/,/\bset to join\s+/], "to");
+
+    findAfter([/\bfrom\s+/,/\bagreement with\s+/,/\btalks with\s+/,/\bnegotiations with\s+/,/\bcontacts with\s+/,/\bdeal with\s+/,/\bwith\s+/,/\bbid (?:to|for)\s+/,/\boffer to\s+/,/\brejected by\s+/,/\bturned down by\s+/,/\bleaves?\s+/,/\bleaving\s+/,/\bexit\s+/], "from");
+
+    // a club that sets a price, or rebuffs a bid, is the selling club
+    for(const c of clubs){
+      if(role[c.id]) continue;
+      const cl = CLUB_BY_ID[c.id];
+      for(const a of cl.aliases){
+        const nm = norm(a).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+        // "Lyon want €40m"  — needs a price to count as selling
+        const priced = new RegExp("\\b"+nm+"\\s+(?:want|wants|are asking|is asking|asking|demand|demanding|value|rate)\\s+(?:around |about |at least |a fee of |him at |no less than )*[€£$]");
+        // unambiguous seller-side verbs
+        const seller = new RegExp("\\b"+nm+"\\s+(?:insist|insisted|will not sell|won'?t sell|refuse|refused|reject|rejected|turned down|accepted|have accepted|consider him untouchable|are relaxed)\\b");
+        if(priced.test(low) || seller.test(low)){ role[c.id]="from"; break; }
+      }
+    }
+
+    // remaining subject-position club → buyer
+    if(clubs.length && !Object.values(role).includes("to")){
+      const first = clubs.find(c=>!role[c.id]);
+      if(first) role[first.id]="to";
+    }
+    return role;
+  },
+
+  /* ---- money, contract length, injury detail ---- */
+  details(text){
+    const d = {};
+    const low = text.toLowerCase();
+
+    const money = /([€£$])\s?(\d+(?:[.,]\d+)?)\s?(m\b|million|bn\b|billion|k\b)?/gi;
+    const found = []; let m;
+    while((m=money.exec(text))!==null){
+      let v = parseFloat(m[2].replace(",","."));
+      const u = (m[3]||"m").toLowerCase();
+      if(u.startsWith("b")) v*=1000; else if(u==="k") v/=1000;
+      found.push({cur:m[1], v, raw:m[0].trim(), at:m.index});
+    }
+    if(found.length){
+      d.fee = found[0];
+      // an amount only counts as add-ons if it directly follows the fee with "plus"/"+"
+      const cand = found.find(f=>{
+        if(f===d.fee || f.at<=d.fee.at) return false;
+        const gap = text.slice(d.fee.at+d.fee.raw.length, f.at);
+        return gap.length<=28 && /\b(plus|\+|and up to|rising to|plus up to)\b/i.test(gap);
+      });
+      if(cand) d.addons = cand;
+    }
+    if(/\bfree (?:transfer|agent)\b/.test(low)) d.free = true;
+    if(/\brelease clause\b/.test(low)) d.releaseClause = true;
+    if(/\badd[- ]?ons?\b/.test(low) && !d.addons) d.hasAddons = true;
+    if(/\bsell[- ]on\b/.test(low)) d.sellOn = true;
+    if(/\bobligation to buy\b/.test(low)) d.loanType="obligation";
+    else if(/\boption to buy\b/.test(low)) d.loanType="option";
+
+    let c = /\b(?:until|till|through(?:\s+to)?)\s+(?:june\s+|summer\s+)?(20\d\d)/i.exec(text);
+    if(c) d.until = +c[1];
+    let y = /\b(one|two|three|four|five|six|seven|1|2|3|4|5|6|7)[\s-]year(?:s)?\s+(?:deal|contract|extension)/i.exec(text);
+    if(y){ const map={one:1,two:2,three:3,four:4,five:5,six:6,seven:7}; d.years = map[y[1].toLowerCase()]||+y[1]; }
+
+    const inj = /\b(acl|cruciate|hamstring|meniscus|achilles|ankle|knee|thigh|calf|groin|shoulder|back|foot|toe|hip|concussion|muscle|ligament|fracture|broken)\b/i.exec(text);
+    if(inj) d.injuryType = inj[1].toLowerCase();
+    let out = /\bout for (?:the )?(?:next )?(?:around |about |approx(?:imately)? )?(\d+)[\s-](weeks?|months?|days?)/i.exec(text);
+    if(!out) out = /\b(\d+)[\s-](weeks?|months?)\s+(?:out|on the sidelines|of recovery)/i.exec(text);
+    if(out) d.outFor = out[1]+" "+out[2].replace(/s$/,"")+(+out[1]>1?"s":"");
+    if(/\bout for the season\b|\brest of the season\b|\bseason(?:[- ]| is )over\b/i.test(text)) d.outFor = "rest of season";
+    if(/\bsurgery|operation\b/i.test(text)) d.surgery = true;
+
+    return d;
+  },
+
+  /* ---- main entry: raw post -> enriched post ---- */
+  process(p){
+    const text = p.text || "";
+    const c = Engine.clean(text);
+    const low = " "+norm(c)+" ";
+
+    const cat   = Engine.category(low);
+    const stage = Engine.stage(low, cat);
+    const ents  = Engine.entities(c);
+    const det   = Engine.details(c);
+
+    // loan overrides transfer only when loan language is central
+    let category = cat;
+    if(cat==="transfer" && loanish(c)) category="loan";
+
+    // buying/selling only means something for a move
+    const role = (category==="transfer"||category==="loan") ? Engine.roles(c, ents.clubs) : {};
+
+    const clubs = ents.clubs.map(x=>({id:x.id, role:role[x.id]||"mentioned"}));
+    const players = [
+      ...ents.people.map(x=>({id:x.id, name:PERSON_BY_ID[x.id].name, known:true, role:PERSON_BY_ID[x.id].role})),
+      ...ents.guesses.map(g=>({id:slug(g), name:g, known:false, role:"player"}))
+    ];
+
+    // heat: recency + stage + fee
+    const ageH = (Date.now()-new Date(p.ts||Date.now()).getTime())/36e5;
+    let heat = Math.max(0, 100 - ageH*1.2);
+    if(stage) heat += (STAGE_BY_ID[stage].rank)*9;
+    if(category==="injury") heat += 18;
+    if(det.fee) heat += Math.min(30, det.fee.v/3);
+
+    return {
+      id: p.id || ("g"+Math.random().toString(36).slice(2,11)),
+      ts: p.ts || new Date().toISOString(),
+      text,
+      url: p.url || null,
+      cat: category,
+      stage,
+      clubs,
+      players,
+      det,
+      demo: !!p.demo,
+      heat: Math.round(heat)
+    };
+  },
+
+  reprocessAll(){
+    DB.posts = DB.posts.map(p=>({...Engine.process({id:p.id,ts:p.ts,text:p.text,url:p.url,demo:p.demo})}));
+    Store.save(); Render.all();
+    Toast.show("Reclassified "+DB.posts.length+" posts");
+  }
+};
+/* Hosted build — posts are loaded from posts.json at boot, not baked in.
+   The GitHub Action rewrites posts.json every 15 minutes. */
+let SEED = [];
+/* ============================================================
+   STATE + STORAGE
+   ============================================================ */
+const KEY = "romano-tracker-v2";
+let DB = { posts: [] };
+let State = {
+  view:{type:"feed"},
+  f:{cat:new Set(), stage:new Set(), league:new Set(), time:"all"},
+  sort:"new",
+  q:""
+};
+
+const esc = s => String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+
+const Store = {
+  /* Posts live in two places: the SEED baked into this file (which the hourly
+     scheduled run appends to) and your browser storage. On every open we merge
+     any SEED post we haven't merged before — so file updates show up — while
+     `merged` remembers what's already been handled so deleted posts stay dead. */
+  load(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      if(raw) DB = JSON.parse(raw);
+    }catch(e){ DB = {posts:[]}; }
+    if(!DB.posts)  DB.posts  = [];
+    if(!DB.merged) DB.merged = [];
+
+    const seen = new Set(DB.merged);
+    const fresh = SEED.filter(p=>!seen.has(p.id));
+    if(fresh.length){
+      const have = new Set(DB.posts.map(p=>p.id));
+      fresh.forEach(p=>{
+        DB.merged.push(p.id);
+        if(!have.has(p.id)) DB.posts.push(Engine.process(p));
+      });
+      DB.posts.sort((a,b)=> new Date(b.ts)-new Date(a.ts));
+      Store.save();
+      if(DB.merged.length > fresh.length) Store.pending = fresh.length;  // not a first run
+    }
+  },
+  pending:0,
+  save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ Toast.show("Storage full — export and trim your data"); } },
+  export(){
+    const blob = new Blob([JSON.stringify(DB.posts.map(p=>({id:p.id,ts:p.ts,text:p.text,url:p.url})),null,2)],{type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "romano-posts-"+new Date().toISOString().slice(0,10)+".json";
+    a.click();
+    Toast.show("Exported "+DB.posts.length+" posts");
+  },
+  loadSeed(){
+    const before = DB.posts.length;
+    Ingest.add(SEED);
+    Toast.show("Restored "+(DB.posts.length-before)+" posts from the file");
+  },
+  wipe(){
+    if(!confirm("Delete all "+DB.posts.length+" stored posts? This cannot be undone.")) return;
+    DB={posts:[], merged:DB.merged||[]};   // keep merge history so deleted posts don't come back
+    Store.save(); Modal.close(); Nav.home();
+    Toast.show("All data deleted");
+  }
+};
+
+/* ============================================================
+   INGEST
+   ============================================================ */
+const Ingest = {
+  add(list){
+    const seen = new Set(DB.posts.map(p=>p.id));
+    const seenTxt = new Set(DB.posts.map(p=>norm(p.text).slice(0,90)));
+    let n=0;
+    list.forEach(raw=>{
+      if(!raw || !raw.text || !String(raw.text).trim()) return;
+      const key = norm(raw.text).slice(0,90);
+      if(raw.id && seen.has(raw.id)) return;
+      if(seenTxt.has(key)) return;
+      const p = Engine.process(raw);
+      seen.add(p.id); seenTxt.add(key);
+      DB.posts.push(p); n++;
+    });
+    DB.posts.sort((a,b)=> new Date(b.ts)-new Date(a.ts));
+    Store.save(); Render.all();
+    return n;
+  },
+  run(){
+    const tab = Modal.activeTab;
+    try{
+      if(tab==="paste"){
+        const v = document.getElementById("jsonIn").value.trim();
+        if(!v) return Toast.show("Nothing to import");
+        const arr = JSON.parse(v);
+        const n = Ingest.add(Array.isArray(arr)?arr:[arr]);
+        Toast.show(n?("Imported "+n+" new posts"):"No new posts (all duplicates)");
+        document.getElementById("jsonIn").value="";
+        Modal.close();
+      }
+      else if(tab==="raw"){
+        const v = document.getElementById("rawIn").value.trim();
+        if(!v) return Toast.show("Nothing to import");
+        const blocks = v.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+        const now = Date.now();
+        const n = Ingest.add(blocks.map((t,i)=>({ text:t, ts:new Date(now - i*36e5).toISOString() })));
+        Toast.show(n?("Imported "+n+" new posts"):"No new posts (all duplicates)");
+        document.getElementById("rawIn").value="";
+        Modal.close();
+      }
+      else {
+        const f = document.getElementById("fileIn").files[0];
+        if(!f) return Toast.show("Choose a file first");
+        const r = new FileReader();
+        r.onload = e=>{
+          try{
+            const arr = JSON.parse(e.target.result);
+            const n = Ingest.add(Array.isArray(arr)?arr:[arr]);
+            Toast.show(n?("Imported "+n+" new posts"):"No new posts (all duplicates)");
+            Modal.close();
+          }catch(err){ Toast.show("Bad JSON: "+err.message); }
+        };
+        r.readAsText(f);
+      }
+    }catch(err){ Toast.show("Bad JSON: "+err.message); }
+  }
+};
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const ago = ts=>{
+  const d = (Date.now()-new Date(ts).getTime())/1000;
+  if(d<60) return "now";
+  if(d<3600) return Math.floor(d/60)+"m";
+  if(d<86400) return Math.floor(d/3600)+"h";
+  if(d<604800) return Math.floor(d/86400)+"d";
+  return new Date(ts).toLocaleDateString(undefined,{day:"numeric",month:"short"});
+};
+const initials = n=>n.split(/\s+/).filter(w=>/^\p{Lu}/u.test(w)).slice(0,2).map(w=>w[0]).join("").toUpperCase()||n.slice(0,2).toUpperCase();
+const feeStr = d=>{
+  if(d.free) return "Free transfer";
+  if(!d.fee) return null;
+  let s = d.fee.cur + (d.fee.v%1?d.fee.v.toFixed(1):d.fee.v) + "m";
+  if(d.addons) s += " + " + d.addons.cur + (d.addons.v%1?d.addons.v.toFixed(1):d.addons.v) + "m";
+  else if(d.hasAddons) s += " + add-ons";
+  return s;
+};
+
+/* build the searchable entity index from stored posts */
+function entityIndex(){
+  const idx = new Map();
+  const bump=(id,kind,name,extra)=>{
+    if(!idx.has(id)) idx.set(id,{id,kind,name,n:0,...extra});
+    idx.get(id).n++;
+  };
+  DB.posts.forEach(p=>{
+    p.clubs.forEach(c=>{ const cl=CLUB_BY_ID[c.id]; if(cl) bump(c.id,"club",cl.name,{league:cl.league,colour:cl.colour}); });
+    p.players.forEach(pl=> bump(pl.id, pl.role==="manager"?"manager":"player", pl.name, {known:pl.known}));
+  });
+  return [...idx.values()].sort((a,b)=>b.n-a.n);
+}
+
+/* ============================================================
+   FILTERING
+   ============================================================ */
+function activePosts(){
+  const f = State.f;
+  const cut = {"24h":864e5,"7d":6048e5,"30d":2592e6}[f.time];
+  return DB.posts.filter(p=>{
+    if(f.cat.size && !f.cat.has(p.cat)) return false;
+    if(f.stage.size && !f.stage.has(p.stage)) return false;
+    if(f.league.size && !p.clubs.some(c=>CLUB_BY_ID[c.id] && f.league.has(CLUB_BY_ID[c.id].league))) return false;
+    if(cut && Date.now()-new Date(p.ts).getTime() > cut) return false;
+    return true;
+  });
+}
+function sortPosts(list){
+  const s = State.sort;
+  const a = [...list];
+  if(s==="new") a.sort((x,y)=>new Date(y.ts)-new Date(x.ts));
+  else if(s==="old") a.sort((x,y)=>new Date(x.ts)-new Date(y.ts));
+  else if(s==="heat") a.sort((x,y)=>y.heat-x.heat);
+  else if(s==="stage") a.sort((x,y)=>(y.stage?STAGE_BY_ID[y.stage].rank:-1)-(x.stage?STAGE_BY_ID[x.stage].rank:-1));
+  return a;
+}
+function postsFor(kind,id){
+  return DB.posts.filter(p=> kind==="club" ? p.clubs.some(c=>c.id===id) : p.players.some(pl=>pl.id===id));
+}
+
+const Filters = {
+  toggle(kind,val){
+    const s = State.f[kind];
+    s.has(val)?s.delete(val):s.add(val);
+    Render.all();
+  },
+  reset(kind){ State.f[kind].clear(); Render.all(); },
+  time(v){ State.f.time=v; Render.all(); }
+};
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const Render = {
+  all(){ Render.sidebar(); Render.view(); },
+
+  sidebar(){
+    const all = DB.posts;
+    document.getElementById("srcCount").textContent = all.length+" post"+(all.length===1?"":"s");
+    document.getElementById("srcLast").textContent = all.length ? "latest "+ago(all[0].ts) : "—";
+
+    const count = fn => all.filter(fn).length;
+
+    document.getElementById("catFilters").innerHTML = Object.entries(CATS).map(([k,v])=>{
+      const n = count(p=>p.cat===k); if(!n && !State.f.cat.has(k)) return "";
+      return `<div class="fil ${State.f.cat.has(k)?"on":""}" onclick="Filters.toggle('cat','${k}')">
+        <div class="sw" style="background:${v.c}"></div><div class="nm">${v.n}</div><div class="ct">${n}</div></div>`;
+    }).join("");
+
+    document.getElementById("stageFilters").innerHTML = STAGES.map(s=>{
+      const n = count(p=>p.stage===s.id); if(!n && !State.f.stage.has(s.id)) return "";
+      return `<div class="fil ${State.f.stage.has(s.id)?"on":""}" onclick="Filters.toggle('stage','${s.id}')">
+        <div class="sw" style="background:${s.c}"></div><div class="nm">${s.n}</div><div class="ct">${n}</div></div>`;
+    }).join("");
+
+    document.getElementById("leagueFilters").innerHTML = Object.entries(LEAGUES).map(([k,v])=>{
+      const n = count(p=>p.clubs.some(c=>CLUB_BY_ID[c.id]&&CLUB_BY_ID[c.id].league===k));
+      if(!n && !State.f.league.has(k)) return "";
+      return `<div class="fil ${State.f.league.has(k)?"on":""}" onclick="Filters.toggle('league','${k}')">
+        <div class="sw" style="background:${v.c}"></div><div class="nm">${v.n}</div><div class="ct">${n}</div></div>`;
+    }).join("");
+
+    document.getElementById("timeFilters").innerHTML = [["all","All time"],["24h","Last 24 hours"],["7d","Last 7 days"],["30d","Last 30 days"]]
+      .map(([k,n])=>`<div class="fil ${State.f.time===k?"on":""}" onclick="Filters.time('${k}')"><div class="nm">${n}</div></div>`).join("");
+
+    // phone: the sidebar is hidden, so surface the category filters as scrollable chips
+    document.getElementById("mobileFilters").innerHTML = Object.entries(CATS).map(([k,v])=>{
+      const n = count(p=>p.cat===k); if(!n) return "";
+      return `<button class="chip ${State.f.cat.has(k)?"on":""}" onclick="Filters.toggle('cat','${k}')">
+        <span class="sw" style="background:${v.c}"></span>${v.n} <span style="color:var(--tx3)">${n}</span></button>`;
+    }).join("");
+
+    document.getElementById("dataStats").innerHTML =
+      `<b>${all.length}</b> posts stored · <b>${entityIndex().filter(e=>e.kind==="club").length}</b> clubs · <b>${entityIndex().filter(e=>e.kind!=="club").length}</b> people tracked.
+       Everything is saved in this browser only.`;
+  },
+
+  view(){
+    const v = State.view;
+    if(v.type==="entity") return Render.entity(v.kind, v.id);
+    return Render.feed();
+  },
+
+  toolbar(n){
+    return `<div class="bar-sort"><span>${n} post${n===1?"":"s"}</span>
+      <span>Sort
+        <select onchange="State.sort=this.value;Render.view()">
+          <option value="new"${State.sort==="new"?" selected":""}>Newest</option>
+          <option value="heat"${State.sort==="heat"?" selected":""}>Hottest</option>
+          <option value="stage"${State.sort==="stage"?" selected":""}>Deal stage</option>
+          <option value="old"${State.sort==="old"?" selected":""}>Oldest</option>
+        </select></span></div>`;
+  },
+
+  feed(){
+    const posts = sortPosts(activePosts());
+    const el = document.getElementById("view");
+    if(!DB.posts.length){
+      el.innerHTML = `<div class="empty"><div class="big">⚽</div><h3>No posts yet</h3>
+        <p>Posts arrive automatically from Fabrizio Romano's Telegram channel and are sorted by club, player, deal stage and category. You can also import a file by hand.</p>
+        <button class="btn pri" style="display:inline-flex" onclick="Modal.open('import')">Import posts</button></div>`;
+      return;
+    }
+    if(!posts.length){
+      el.innerHTML = `<div class="empty"><div class="big">🔍</div><h3>Nothing matches those filters</h3>
+        <p>Try clearing a filter in the sidebar.</p></div>`;
+      return;
+    }
+    el.innerHTML = Render.demoNote() + Render.toolbar(posts.length) + posts.map(Render.card).join("");
+  },
+
+  demoNote(){
+    if(!Store.pending) return "";
+    const n = Store.pending;
+    return `<div style="background:#12301f;border:1px solid #235c37;color:#8fe0aa;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px">
+      <b>${n} new post${n===1?"":"s"}</b> picked up since you last opened this.
+    </div>`;
+  },
+
+  entity(kind,id){
+    const posts = sortPosts(postsFor(kind,id));
+    const club = kind==="club" ? CLUB_BY_ID[id] : null;
+    const person = PERSON_BY_ID[id];
+    const name = club ? club.name : (person ? person.name : (posts[0]?.players.find(p=>p.id===id)?.name || id));
+    const colour = club ? club.colour : "#2a3441";
+
+    let sub = "";
+    if(club) sub = LEAGUES[club.league].n;
+    else if(person){
+      sub = (person.role==="manager"?"Manager":"Player");
+      if(person.clubs.length) sub += " · " + person.clubs.map(c=>CLUB_BY_ID[c]?CLUB_BY_ID[c].name:c).join(" / ");
+    } else sub = "Detected name — not in the reference squad list";
+
+    const byCat = {};
+    posts.forEach(p=>byCat[p.cat]=(byCat[p.cat]||0)+1);
+
+    // deal ladder — highest transfer stage reached, from most recent transfer post
+    const tPosts = posts.filter(p=>(p.cat==="transfer"||p.cat==="loan")&&p.stage);
+    let ladder = "";
+    if(tPosts.length && kind!=="club"){
+      const top = tPosts.reduce((a,b)=> STAGE_BY_ID[b.stage].rank>STAGE_BY_ID[a.stage].rank ? b : a);
+      const r = STAGE_BY_ID[top.stage].rank;
+      ladder = `<div class="ladder"><div class="lb">Deal progress — furthest stage reported</div><div class="rungs">
+        ${STAGES.map((s,i)=>`<div class="rung ${i<r?"hit":""} ${i===r?"cur":""}"><div class="bar"></div><div class="t">${s.n}</div></div>`).join("")}
+      </div></div>`;
+    }
+
+    const latestFee = posts.map(p=>feeStr(p.det)).find(Boolean);
+
+    document.getElementById("view").innerHTML = `
+      <div class="crumb"><button onclick="Nav.home()">← All posts</button><span>/</span><span>${esc(name)}</span></div>
+      <div class="ehead">
+        <div class="top">
+          <div class="crest" style="background:${colour}22;color:${colour};border:1px solid ${colour}55">${esc(initials(name))}</div>
+          <div style="flex:1;min-width:0">
+            <h1>${esc(name)}</h1>
+            <div class="sub">${esc(sub)}</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>${posts.length}</b><span>posts</span></div>
+          ${Object.entries(byCat).map(([k,n])=>`<div class="stat"><b style="color:${CATS[k].fg}">${n}</b><span>${CATS[k].n}</span></div>`).join("")}
+          ${latestFee?`<div class="stat"><b style="color:#8fe0aa">${esc(latestFee)}</b><span>reported fee</span></div>`:""}
+        </div>
+        ${ladder}
+      </div>
+      ${Render.toolbar(posts.length)}
+      ${posts.map(Render.card).join("")}`;
+  },
+
+  card(p){
+    const cat = CATS[p.cat];
+    const st = p.stage ? STAGE_BY_ID[p.stage] : null;
+    const fee = feeStr(p.det);
+
+    const clubTags = p.clubs.map(c=>{
+      const cl = CLUB_BY_ID[c.id]; if(!cl) return "";
+      const label = c.role==="to"?"to":c.role==="from"?"from":"";
+      return `<button class="tag" onclick="Nav.entity('club','${c.id}')">
+        <span class="sw" style="width:7px;height:7px;border-radius:2px;background:${cl.colour}"></span>
+        ${label?`<span class="k">${label}</span>`:""}${esc(cl.name)}</button>`;
+    }).join("");
+
+    const playerTags = p.players.map(pl=>
+      `<button class="tag ${pl.known?"":"guess"}" onclick="Nav.entity('player','${pl.id}')" ${pl.known?"":'title="Name detected automatically — not in the reference squad list"'}>
+        ${pl.role==="manager"?'<span class="k">mgr</span>':""}${esc(pl.name)}</button>`).join("");
+
+    const bits = [];
+    if(fee) bits.push(`<span class="fee">💰 ${esc(fee)}</span>`);
+    if(p.det.until) bits.push(`<span class="tag">contract to ${p.det.until}</span>`);
+    else if(p.det.years) bits.push(`<span class="tag">${p.det.years}-year deal</span>`);
+    if(p.det.loanType) bits.push(`<span class="tag">${p.det.loanType} to buy</span>`);
+    if(p.det.releaseClause) bits.push(`<span class="tag">release clause</span>`);
+    if(p.det.sellOn) bits.push(`<span class="tag">sell-on clause</span>`);
+    if(p.det.injuryType) bits.push(`<span class="tag" style="color:#ff9c9c">${esc(p.det.injuryType)}</span>`);
+    if(p.det.outFor) bits.push(`<span class="tag" style="color:#ff9c9c">out ${esc(p.det.outFor)}</span>`);
+    if(p.det.surgery) bits.push(`<span class="tag" style="color:#ff9c9c">surgery</span>`);
+
+    let txt = esc(p.text);
+    if(State.q && State.q.length>2){
+      const re = new RegExp("("+State.q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi");
+      txt = txt.replace(re,"<mark>$1</mark>");
+    }
+
+    return `<div class="post">
+      <div class="accent" style="background:${cat.c}"></div>
+      <div class="ph">
+        <span class="badge" style="background:${cat.bg};color:${cat.fg}">${cat.n}</span>
+        ${st?`<span class="stagebadge" style="color:${st.c};border-color:${st.c}66">${st.n}</span>`:""}
+        <span class="time">${ago(p.ts)}</span>
+      </div>
+      <div class="txt">${txt}</div>
+      ${(clubTags||playerTags||bits.length)?`<div class="tags">${playerTags}${clubTags}${bits.join("")}</div>`:""}
+      ${p.url?`<div class="foot"><a href="${esc(p.url)}" target="_blank" rel="noopener">View on Telegram ↗</a></div>`:""}
+    </div>`;
+  }
+};
+
+/* ============================================================
+   NAV + SEARCH
+   ============================================================ */
+const Nav = {
+  home(){ State.view={type:"feed"}; State.q=""; document.getElementById("q").value=""; Search.hide(); document.getElementById("clr").style.display="none"; Render.view(); document.getElementById("content").scrollTop=0; },
+  entity(kind,id){ State.view={type:"entity",kind,id}; Search.hide(); Render.view(); document.getElementById("content").scrollTop=0; }
+};
+
+const Search = {
+  sel:-1, list:[],
+  input(){
+    const v = document.getElementById("q").value.trim();
+    State.q = v;
+    document.getElementById("clr").style.display = v?"block":"none";
+    if(v.length<1){ Search.hide(); return; }
+    const n = norm(v);
+    const idx = entityIndex();
+    const hits = idx.filter(e=>norm(e.name).includes(n)
+      || (e.kind==="club" && CLUB_BY_ID[e.id] && CLUB_BY_ID[e.id].aliases.some(a=>norm(a).includes(n)))
+      || (PERSON_BY_ID[e.id] && PERSON_BY_ID[e.id].aliases.some(a=>norm(a).includes(n))));
+    hits.sort((a,b)=>{
+      const as = norm(a.name).startsWith(n)?0:1, bs = norm(b.name).startsWith(n)?0:1;
+      return as-bs || b.n-a.n;
+    });
+    Search.list = hits.slice(0,14);
+    Search.sel = -1;
+    Search.paint(v);
+  },
+  paint(q){
+    const ac = document.getElementById("ac");
+    if(!Search.list.length){
+      const free = DB.posts.filter(p=>norm(p.text).includes(norm(q))).length;
+      ac.innerHTML = free
+        ? `<div class="grp">Full text</div><div class="it" onclick="Search.freeText()"><div class="nm">Search post text for “${esc(q)}”</div><div class="n">${free}</div></div>`
+        : `<div class="grp">No matches</div><div class="it" style="cursor:default"><div class="nm" style="color:var(--tx3)">Nothing found for “${esc(q)}”</div></div>`;
+      ac.classList.add("on"); return;
+    }
+    const groups = {player:[],manager:[],club:[]};
+    Search.list.forEach((e,i)=>groups[e.kind].push({...e,i}));
+    let h="";
+    const titles={player:"Players",manager:"Managers",club:"Clubs"};
+    ["player","manager","club"].forEach(k=>{
+      if(!groups[k].length) return;
+      h += `<div class="grp">${titles[k]}</div>`;
+      h += groups[k].map(e=>`<div class="it ${e.i===Search.sel?"sel":""}" onclick="Nav.entity('${e.kind==="club"?"club":"player"}','${e.id}')">
+        <div class="nm">${esc(e.name)}${e.known===false?' <span style="color:var(--tx3);font-size:11px">· detected</span>':""}</div>
+        ${e.kind==="club"&&CLUB_BY_ID[e.id]?`<div class="sub">${LEAGUES[CLUB_BY_ID[e.id].league].n}</div>`:""}
+        <div class="n">${e.n}</div></div>`).join("");
+    });
+    ac.innerHTML = h;
+    ac.classList.add("on");
+  },
+  freeText(){
+    Search.hide();
+    const q = norm(State.q);
+    const posts = sortPosts(DB.posts.filter(p=>norm(p.text).includes(q)));
+    document.getElementById("view").innerHTML =
+      `<div class="crumb"><button onclick="Nav.home()">← All posts</button><span>/</span><span>“${esc(State.q)}”</span></div>`
+      + Render.toolbar(posts.length) + (posts.length?posts.map(Render.card).join(""):`<div class="empty"><h3>No posts contain that</h3></div>`);
+    State.view={type:"search"};
+  },
+  key(e){
+    const ac = document.getElementById("ac");
+    if(!ac.classList.contains("on")) return;
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+      e.preventDefault();
+      Search.sel += e.key==="ArrowDown"?1:-1;
+      if(Search.sel<0) Search.sel=Search.list.length-1;
+      if(Search.sel>=Search.list.length) Search.sel=0;
+      Search.paint(State.q);
+      const s = ac.querySelector(".it.sel"); if(s) s.scrollIntoView({block:"nearest"});
+    } else if(e.key==="Enter"){
+      e.preventDefault();
+      if(Search.sel>=0){ const t=Search.list[Search.sel]; Nav.entity(t.kind==="club"?"club":"player",t.id); }
+      else if(Search.list.length){ const t=Search.list[0]; Nav.entity(t.kind==="club"?"club":"player",t.id); }
+      else Search.freeText();
+    } else if(e.key==="Escape"){ Search.hide(); }
+  },
+  hide(){ document.getElementById("ac").classList.remove("on"); },
+  clear(){ document.getElementById("q").value=""; State.q=""; document.getElementById("clr").style.display="none"; Search.hide(); }
+};
+
+/* ============================================================
+   MODAL + TOAST
+   ============================================================ */
+const Modal = {
+  activeTab:"paste",
+  open(w){ document.getElementById(w==="import"?"ovImport":"ovManage").classList.add("on"); if(w==="manage") Render.sidebar(); },
+  close(){ document.querySelectorAll(".ov").forEach(o=>o.classList.remove("on")); },
+  tab(t,btn){
+    Modal.activeTab=t;
+    btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    document.getElementById("tabPaste").style.display = t==="paste"?"":"none";
+    document.getElementById("tabFile").style.display  = t==="file"?"":"none";
+    document.getElementById("tabRaw").style.display   = t==="raw"?"":"none";
+  }
+};
+const Toast = {
+  t:null,
+  show(m){
+    const el = document.getElementById("toast");
+    el.textContent = m; el.classList.add("on");
+    clearTimeout(Toast.t);
+    Toast.t = setTimeout(()=>el.classList.remove("on"), 2600);
+  }
+};
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+document.getElementById("q").addEventListener("input", Search.input);
+document.getElementById("q").addEventListener("keydown", Search.key);
+document.addEventListener("click", e=>{ if(!e.target.closest(".searchwrap")) Search.hide(); });
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape") Modal.close();
+  if((e.key==="/"||((e.metaKey||e.ctrlKey)&&e.key==="k")) && document.activeElement.id!=="q"){
+    e.preventDefault(); document.getElementById("q").focus();
+  }
+});
+/* ============================================================
+   HOSTED BOOT
+   posts.json is rewritten every 15 minutes by the GitHub Action.
+   We fetch it, hand it to the same Store.load() merge path, and
+   classify in the browser — so the server never needs the rules.
+   ============================================================ */
+async function boot(){
+  const view = document.getElementById("view");
+  view.innerHTML = `<div class="empty"><div class="big">⚽</div><h3>Loading posts…</h3></div>`;
+  try{
+    const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    if(Array.isArray(data)) SEED = data;
+  }catch(e){
+    // offline or first deploy — fall back to whatever is already in storage
+    console.warn("couldn't load posts.json:", e.message);
+    if(!localStorage.getItem(KEY)){
+      const local = location.protocol === "file:";
+      view.innerHTML = `<div class="empty"><div class="big">📡</div><h3>Couldn't load posts</h3>
+        <p>${local
+          ? `This page is open straight off your disk, and browsers block a <code>file://</code> page
+             from reading anything — including the <code>posts.json</code> next to it.
+             Double-click <b>Run locally.command</b> in this folder instead: it fetches the newest
+             posts and serves the app properly.`
+          : `posts.json didn't load — if you've just deployed, the first scheduled run may not have
+             happened yet. Check the Actions tab in your repo.`}</p>
+        <button class="btn pri" style="display:inline-flex" onclick="location.reload()">Retry</button></div>`;
+      return;
+    }
+  }
+  Store.load();
+  Render.all();
+  Render.stamp();
+}
+
+/* ============================================================
+   LIVE UPDATE  —  the Update button
+   Two passes, cheapest first:
+     1. re-read posts.json, which the Action rewrites every 15 minutes
+     2. read the Telegram channel directly for anything newer still, so you
+        never have to wait out the schedule
+   Pass 2 needs a relay because a browser can't read t.me across origins.
+   If every relay is down, pass 1 still stands on its own.
+   ============================================================ */
+const TG_CHANNEL = "fabrizioromanotg";
+const RELAY_KEY  = "romano-tracker-relay";
+
+const RELAYS = [
+  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u),
+  u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+  u => "https://api.cors.lol/?url=" + encodeURIComponent(u),
+];
+
+/* Your own relay, if you deployed one: localStorage.romano-tracker-relay =
+   "https://your-worker.workers.dev/?url=" — tried first, then the public ones. */
+function relays(){
+  const mine = localStorage.getItem(RELAY_KEY);
+  return (mine ? [u => mine + encodeURIComponent(u)] : []).concat(RELAYS);
+}
+
+async function readChannelPage(before){
+  const target = "https://t.me/s/" + TG_CHANNEL + (before ? "?before=" + before : "");
+  for(const build of relays()){
+    try{
+      const r = await fetch(build(target), {cache:"no-store"});
+      if(!r.ok) continue;
+      const t = await r.text();
+      if(t.indexOf("tgme_widget_message") > -1) return t;
+    }catch(e){ /* try the next relay */ }
+  }
+  return null;
+}
+
+/* Same shape fetch_posts.py produces, so both paths feed Ingest.add equally. */
+function parseChannel(htmlText){
+  const doc = new DOMParser().parseFromString(htmlText, "text/html");
+  const out = [];
+  doc.querySelectorAll(".tgme_widget_message[data-post]").forEach(el=>{
+    const id = parseInt((el.getAttribute("data-post")||"").split("/")[1], 10);
+    if(!id) return;
+    let node = null;
+    el.querySelectorAll(".js-message_text").forEach(n=>{
+      if(!node && !n.closest(".tgme_widget_message_link_preview")) node = n;
+    });
+    if(!node) return;
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll("br").forEach(b=>b.replaceWith("\n"));
+    let text = clone.textContent.replace(/​/g,"").replace(/ /g," ");
+    text = text.replace(/[—-]\s*Fabrizio Romano\s*\(@FabrizioRomano\)[\s\S]*$/,"")
+               .replace(/https?:\/\/\S+/g,"")
+               .replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();
+    if(text.length < 25) return;
+    const time = el.querySelector(".tgme_widget_message_date time") || el.querySelector("time[datetime]");
+    if(!time) return;
+    out.push({
+      id: String(id),
+      ts: time.getAttribute("datetime").replace("+00:00","") + ".000Z",
+      url: "https://t.me/FabrizioRomanoTG/" + id,
+      text: text
+    });
+  });
+  return out;
+}
+
+const Live = {
+  busy: false,
+
+  /* newest Telegram id we hold — legacy X ids are far larger, so ignore those */
+  highWater(){
+    return DB.posts.reduce((m,p)=>{
+      const n = parseInt(p.id,10);
+      return (n && n < 1e9 && n > m) ? n : m;
+    }, 0);
+  },
+
+  async update(){
+    if(Live.busy) return;
+
+    /* A page opened straight off the disk has no origin, and browsers refuse
+       every network read from one — including its own posts.json sitting in the
+       same folder. Nothing here can work, so say so instead of reporting
+       "up to date" over stale posts. */
+    if(location.protocol === "file:"){
+      Toast.show("Opened as a file — run “Run locally.command” to get updates");
+      return;
+    }
+
+    Live.busy = true;
+    const btn = document.getElementById("btnUpdate");
+    btn.classList.add("working");
+
+    let added = 0, reachedTelegram = false, reachedServer = false;
+
+    // pass 1 — whatever the Action has already committed
+    try{
+      const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
+      if(r.ok){
+        reachedServer = true;
+        const data = await r.json();
+        if(Array.isArray(data) && data.length){
+          SEED = data;
+          if(!DB.merged) DB.merged = [];
+          const merged = new Set(DB.merged);
+          data.forEach(p=>{ if(!merged.has(p.id)) DB.merged.push(p.id); });
+          added += Ingest.add(data);
+        }
+      }
+    }catch(e){ /* offline, or opened from a file:// path — pass 2 may still work */ }
+
+    // pass 2 — straight from the channel, newer than anything we hold
+    const since = Live.highWater();
+    let cursor = null;
+    for(let page = 0; page < 8; page++){
+      const htmlText = await readChannelPage(cursor);
+      if(!htmlText) break;                       // no relay got through
+      reachedTelegram = true;
+      const batch = parseChannel(htmlText);
+      if(!batch.length) break;
+      const fresh = batch.filter(p => parseInt(p.id,10) > since);
+      if(fresh.length) added += Ingest.add(fresh);
+      if(fresh.length < batch.length) break;     // caught up with what we have
+      cursor = Math.min.apply(null, batch.map(p=>parseInt(p.id,10)));
+      if(cursor <= 1) break;
+    }
+
+    Render.stamp();
+    btn.classList.remove("working");
+    Live.busy = false;
+
+    if(added) Toast.show(added + (added === 1 ? " new post" : " new posts"));
+    else if(reachedTelegram) Toast.show("Up to date");
+    else if(reachedServer) Toast.show("Up to date — couldn't reach Telegram directly");
+    else Toast.show("No connection");
+  }
+};
+
+/* "updated 6m ago" in the sidebar, from the newest post we hold */
+Render.stamp = function(){
+  const el = document.getElementById("srcLast");
+  if(el && DB.posts.length) el.textContent = "latest " + ago(DB.posts[0].ts);
+};
+
+/* Coming back to the app after a while → pull new posts rather than reload.
+   A reload in a home-screen app shows a blank flash; Live.update() doesn't,
+   and it reaches Telegram directly instead of only re-reading posts.json. */
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden){ hiddenAt = Date.now(); return; }
+  if(hiddenAt && Date.now() - hiddenAt > 12e4 && location.protocol !== "file:"){
+    Live.update();
+  }
+});
+
+/* ============================================================
+   PHONE: pull down to refresh
+   Only when the feed is already scrolled to the top, so it never fights
+   with normal scrolling.
+   ============================================================ */
+(function pullToRefresh(){
+  const el = document.getElementById("content");
+  if(!el) return;
+  let startY = 0, pulling = false, armed = false;
+
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:100;display:flex;"
+    + "align-items:center;justify-content:center;font-size:12px;color:var(--tx3);"
+    + "height:0;overflow:hidden;transition:height .18s;pointer-events:none;"
+    + "background:var(--bg2);border-bottom:1px solid var(--line)";
+  document.body.appendChild(bar);
+
+  el.addEventListener("touchstart", e=>{
+    if(el.scrollTop > 0 || Live.busy) return;
+    startY = e.touches[0].clientY; pulling = true; armed = false;
+  }, {passive:true});
+
+  el.addEventListener("touchmove", e=>{
+    if(!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if(dy <= 0){ bar.style.height = "0"; return; }
+    const h = Math.min(56, dy * 0.45);
+    bar.style.height = h + "px";
+    armed = h > 42;
+    bar.textContent = armed ? "Release to update" : "Pull to update";
+  }, {passive:true});
+
+  el.addEventListener("touchend", ()=>{
+    if(!pulling) return;
+    pulling = false;
+    if(armed){
+      bar.textContent = "Updating…";
+      bar.style.height = "34px";
+      Promise.resolve(Live.update()).finally(()=>{ bar.style.height = "0"; });
+    }else{
+      bar.style.height = "0";
+    }
+  });
+})();
+
+/* ============================================================
+   SERVICE WORKER
+   Makes the home-screen app open instantly and survive no signal.
+   Browsers only allow this on https or localhost — over plain http on your
+   home wifi it quietly does nothing, which is fine.
+   ============================================================ */
+if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+
+boot();
+</script>
+</body>
+</html>
