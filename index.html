@@ -1722,144 +1722,61 @@ async function boot(){
 }
 
 /* ============================================================
-   LIVE UPDATE  —  the Update button
-   Two passes, cheapest first:
-     1. re-read posts.json, which the Action rewrites every 15 minutes
-     2. read the Telegram channel directly for anything newer still, so you
-        never have to wait out the schedule
-   Pass 2 needs a relay because a browser can't read t.me across origins.
-   If every relay is down, pass 1 still stands on its own.
+   UPDATE  —  the Update button, pull-to-refresh, and returning to the app
+
+   Re-reads posts.json from the site. That file is the single source of truth:
+   the scheduled job scrapes Telegram, commits it, and every device reads the
+   same copy — so your phone and your laptop can never disagree.
+
+   The app deliberately does NOT scrape Telegram itself. It could, via a relay,
+   but those posts would live in one browser's private storage and never reach
+   the other devices, which is exactly the drift that caused confusion before.
+   One writer, many readers.
+
+   Freshness is therefore whatever the schedule gives you — see the cron in
+   .github/workflows/update.yml.
    ============================================================ */
-const TG_CHANNEL = "fabrizioromanotg";
-const RELAY_KEY  = "romano-tracker-relay";
-
-const RELAYS = [
-  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-  u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u),
-  u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
-  u => "https://api.cors.lol/?url=" + encodeURIComponent(u),
-];
-
-/* Your own relay, if you deployed one: localStorage.romano-tracker-relay =
-   "https://your-worker.workers.dev/?url=" — tried first, then the public ones. */
-function relays(){
-  const mine = localStorage.getItem(RELAY_KEY);
-  return (mine ? [u => mine + encodeURIComponent(u)] : []).concat(RELAYS);
-}
-
-async function readChannelPage(before){
-  const target = "https://t.me/s/" + TG_CHANNEL + (before ? "?before=" + before : "");
-  for(const build of relays()){
-    try{
-      const r = await fetch(build(target), {cache:"no-store"});
-      if(!r.ok) continue;
-      const t = await r.text();
-      if(t.indexOf("tgme_widget_message") > -1) return t;
-    }catch(e){ /* try the next relay */ }
-  }
-  return null;
-}
-
-/* Same shape fetch_posts.py produces, so both paths feed Ingest.add equally. */
-function parseChannel(htmlText){
-  const doc = new DOMParser().parseFromString(htmlText, "text/html");
-  const out = [];
-  doc.querySelectorAll(".tgme_widget_message[data-post]").forEach(el=>{
-    const id = parseInt((el.getAttribute("data-post")||"").split("/")[1], 10);
-    if(!id) return;
-    let node = null;
-    el.querySelectorAll(".js-message_text").forEach(n=>{
-      if(!node && !n.closest(".tgme_widget_message_link_preview")) node = n;
-    });
-    if(!node) return;
-    const clone = node.cloneNode(true);
-    clone.querySelectorAll("br").forEach(b=>b.replaceWith("\n"));
-    let text = clone.textContent.replace(/​/g,"").replace(/ /g," ");
-    text = text.replace(/[—-]\s*Fabrizio Romano\s*\(@FabrizioRomano\)[\s\S]*$/,"")
-               .replace(/https?:\/\/\S+/g,"")
-               .replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();
-    if(text.length < 25) return;
-    const time = el.querySelector(".tgme_widget_message_date time") || el.querySelector("time[datetime]");
-    if(!time) return;
-    out.push({
-      id: String(id),
-      ts: time.getAttribute("datetime").replace("+00:00","") + ".000Z",
-      url: "https://t.me/FabrizioRomanoTG/" + id,
-      text: text
-    });
-  });
-  return out;
-}
-
 const Live = {
   busy: false,
-
-  /* newest Telegram id we hold — legacy X ids are far larger, so ignore those */
-  highWater(){
-    return DB.posts.reduce((m,p)=>{
-      const n = parseInt(p.id,10);
-      return (n && n < 1e9 && n > m) ? n : m;
-    }, 0);
-  },
 
   async update(){
     if(Live.busy) return;
 
     /* A page opened straight off the disk has no origin, and browsers refuse
        every network read from one — including its own posts.json sitting in the
-       same folder. Nothing here can work, so say so instead of reporting
-       "up to date" over stale posts. */
+       same folder. Say so rather than reporting "up to date" over stale posts. */
     if(location.protocol === "file:"){
-      Toast.show("Opened as a file — run “Run locally.command” to get updates");
+      Toast.show("Opened as a file \u2014 run \u201cRun locally.command\u201d to get updates");
       return;
     }
 
     Live.busy = true;
     const btn = document.getElementById("btnUpdate");
-    btn.classList.add("working");
+    if(btn) btn.classList.add("working");
 
-    let added = 0, reachedTelegram = false, reachedServer = false;
-
-    // pass 1 — whatever the Action has already committed
+    let added = 0, reached = false;
     try{
       const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
       if(r.ok){
-        reachedServer = true;
+        reached = true;
         const data = await r.json();
         if(Array.isArray(data) && data.length){
           SEED = data;
           if(!DB.merged) DB.merged = [];
           const merged = new Set(DB.merged);
           data.forEach(p=>{ if(!merged.has(p.id)) DB.merged.push(p.id); });
-          added += Ingest.add(data);
+          added = Ingest.add(data);
         }
       }
-    }catch(e){ /* offline, or opened from a file:// path — pass 2 may still work */ }
-
-    // pass 2 — straight from the channel, newer than anything we hold
-    const since = Live.highWater();
-    let cursor = null;
-    for(let page = 0; page < 8; page++){
-      const htmlText = await readChannelPage(cursor);
-      if(!htmlText) break;                       // no relay got through
-      reachedTelegram = true;
-      const batch = parseChannel(htmlText);
-      if(!batch.length) break;
-      const fresh = batch.filter(p => parseInt(p.id,10) > since);
-      if(fresh.length) added += Ingest.add(fresh);
-      if(fresh.length < batch.length) break;     // caught up with what we have
-      cursor = Math.min.apply(null, batch.map(p=>parseInt(p.id,10)));
-      if(cursor <= 1) break;
-    }
+    }catch(e){ /* offline */ }
 
     Render.stamp();
-    btn.classList.remove("working");
+    if(btn) btn.classList.remove("working");
     Live.busy = false;
 
-    if(added) Toast.show(added + (added === 1 ? " new post" : " new posts"));
-    else if(reachedTelegram) Toast.show("Up to date");
-    else if(reachedServer) Toast.show("Up to date — couldn't reach Telegram directly");
-    else Toast.show("No connection");
+    if(added)        Toast.show(added + (added === 1 ? " new post" : " new posts"));
+    else if(reached) Toast.show("Up to date");
+    else             Toast.show("No connection");
   }
 };
 
