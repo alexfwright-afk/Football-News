@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Romano Tracker</title>
+<title>RD Football News</title>
 
 <!-- Home-screen app. On iOS these three tags are what turn a bookmark into
      something that opens full screen with its own icon and no Safari chrome. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Romano">
+<meta name="apple-mobile-web-app-title" content="Football News">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0c0f14">
-<meta name="description" content="Fabrizio Romano's transfer and injury news, sorted by club, player and deal stage.">
+<meta name="description" content="Transfer and injury news, sorted by club, player and deal stage.">
 <link rel="manifest" href="manifest.webmanifest">
+<script src="config.js"></script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
@@ -225,6 +226,32 @@ aside{
   transition:.24s cubic-bezier(.2,.8,.3,1);
 }
 .toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* follow bell */
+.bell{
+  display:inline-flex;align-items:center;gap:6px;background:var(--bg3);
+  border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12.5px;
+  color:var(--tx2);white-space:nowrap;flex-shrink:0;
+}
+.bell:hover{border-color:#3a4757;color:var(--tx)}
+.bell.on{background:#2a1418;border-color:#7a2230;color:#ff8b8b}
+.bell.on svg{fill:currentColor}
+.bell svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
+.tag .bellmini{margin-left:2px;opacity:.45}
+.tag .bellmini.on{opacity:1;color:#ff8b8b}
+.follrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;
+  cursor:pointer;font-size:13px;color:var(--tx2)}
+.follrow:hover{background:var(--bg3);color:var(--tx)}
+.follrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.follrow .x{color:var(--tx3);font-size:14px;padding:0 3px;border-radius:4px}
+.follrow .x:hover{color:var(--red,#ef4444);background:var(--bg)}
+.notifbar{
+  background:var(--bg3);border:1px solid var(--line);border-radius:9px;
+  padding:10px 11px;margin:0 14px 16px;font-size:12.5px;color:var(--tx2);
+}
+.notifbar b{display:block;color:var(--tx);font-size:13px;margin-bottom:3px}
+.notifbar .btn{margin-top:9px;width:100%;justify-content:center}
+.notifbar .muted{color:var(--tx3);font-size:11.5px;line-height:1.5}
 @keyframes spin{to{transform:rotate(360deg)}}
 .btn.working{opacity:.65;pointer-events:none}
 .btn.working svg{animation:spin .9s linear infinite;transform-origin:50% 50%}
@@ -304,7 +331,7 @@ aside{
   <header>
     <div class="brand" onclick="Nav.home()">
       <div class="dot"></div>
-      <div><b>Romano Tracker</b><span>transfer &amp; injury intelligence</span></div>
+      <div><b>RD Football News</b><span>transfer &amp; injury intelligence</span></div>
     </div>
 
     <div class="searchwrap">
@@ -337,11 +364,18 @@ aside{
         <div class="row">
           <div class="av">FR</div>
           <div style="min-width:0">
-            <div class="nm">Fabrizio Romano <span style="color:#1d9bf0">✓</span></div>
+            <div class="nm">Football News <span style="color:#e02a2a">✓</span></div>
             <div class="hd"><a href="https://t.me/fabrizioromanotg" target="_blank" rel="noopener" style="color:inherit">t.me/fabrizioromanotg</a></div>
           </div>
         </div>
         <div class="meta"><span id="srcCount">0 posts</span><span id="srcLast">—</span></div>
+      </div>
+
+      <div class="notifbar" id="notifBar"></div>
+
+      <div class="sect" id="followSect" style="display:none">
+        <h4>Following <button onclick="Follows.clear()">clear</button></h4>
+        <div id="followList"></div>
       </div>
 
       <div class="sect">
@@ -377,7 +411,7 @@ aside{
 <!-- import modal -->
 <div class="ov" id="ovImport" onclick="if(event.target===this)Modal.close()">
   <div class="modal">
-    <div class="mh"><h3>Import Fabrizio Romano posts</h3></div>
+    <div class="mh"><h3>Import posts</h3></div>
     <div class="mb">
       <div class="tabs">
         <button class="on" onclick="Modal.tab('paste',this)">Paste JSON</button>
@@ -1014,7 +1048,7 @@ const Engine = {
       const w = t.replace(/^[^\p{L}]+|[^\p{L}'’-]+$/gu,"").replace(/[’']s$/,"");
       if(!w){ flush(); continue; }
       const lw = w.toLowerCase();
-      // normal case (Bukayo) OR shouted all-caps (DIOMANDE) — Romano writes both
+      // normal case (Bukayo) OR shouted all-caps (DIOMANDE) — the source writes both
       const isName = /^\p{Lu}/u.test(w) && !STOP.has(lw) && w.length>1
                      && (/\p{Ll}/u.test(w) || (/^\p{Lu}[\p{Lu}'’-]+$/u.test(w) && w.length>=3));
       const isPart = PARTICLES.has(lw) && run.length>0;
@@ -1229,7 +1263,7 @@ const Store = {
     const blob = new Blob([JSON.stringify(DB.posts.map(p=>({id:p.id,ts:p.ts,text:p.text,url:p.url})),null,2)],{type:"application/json"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "romano-posts-"+new Date().toISOString().slice(0,10)+".json";
+    a.download = "football-news-posts-"+new Date().toISOString().slice(0,10)+".json";
     a.click();
     Toast.show("Exported "+DB.posts.length+" posts");
   },
@@ -1448,7 +1482,7 @@ const Render = {
     const el = document.getElementById("view");
     if(!DB.posts.length){
       el.innerHTML = `<div class="empty"><div class="big">⚽</div><h3>No posts yet</h3>
-        <p>Posts arrive automatically from Fabrizio Romano's Telegram channel and are sorted by club, player, deal stage and category. You can also import a file by hand.</p>
+        <p>Posts arrive automatically and are sorted by club, player, deal stage and category. You can also import a file by hand.</p>
         <button class="btn pri" style="display:inline-flex" onclick="Modal.open('import')">Import posts</button></div>`;
       return;
     }
@@ -1507,6 +1541,7 @@ const Render = {
             <h1>${esc(name)}</h1>
             <div class="sub">${esc(sub)}</div>
           </div>
+          ${Follows.button(kind, id, name)}
         </div>
         <div class="stats">
           <div class="stat"><b>${posts.length}</b><span>posts</span></div>
@@ -1719,9 +1754,237 @@ async function boot(){
     }
   }
   Store.load();
+  Follows.load();
   Render.all();
   Render.stamp();
+  Follows.render();
+  Push.init();
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FOLLOWING  +  NOTIFICATIONS
+
+   Follow any club or player and get a push when they're in the news.
+
+   The follow list lives on this device. It's also sent to the notification
+   server, because that's the thing awake at 2am when a deal breaks — your
+   phone isn't. What the server stores is only: this device wants alerts about
+   these names. No account, no email, nothing that identifies you.
+
+   The alert itself carries no text through Apple's servers: the server sends
+   an empty nudge, and the service worker fetches the headline from your own
+   Worker. See sw.js.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const CFG = (typeof FN_CONFIG !== "undefined" ? FN_CONFIG : {});
+const FOLLOW_KEY = "football-news-follows";
+
+const Follows = {
+  map: {},                                   // "club:arsenal" -> {kind,id,label,terms}
+
+  load(){
+    try{ Follows.map = JSON.parse(localStorage.getItem(FOLLOW_KEY)) || {}; }
+    catch(e){ Follows.map = {}; }
+  },
+  save(){
+    try{ localStorage.setItem(FOLLOW_KEY, JSON.stringify(Follows.map)); }catch(e){}
+  },
+  key: (kind,id) => kind + ":" + id,
+  has(kind,id){ return !!Follows.map[Follows.key(kind,id)]; },
+  list(){ return Object.values(Follows.map).sort((a,b)=>a.label.localeCompare(b.label)); },
+
+  /* Every alias we know for this entity travels with the follow, so the server
+     can match "Man Utd" and "Manchester United" without shipping the whole
+     dictionary to it. */
+  terms(kind,id,fallback){
+    const src = kind === "club" ? CLUB_BY_ID[id] : PERSON_BY_ID[id];
+    const out = src ? [src.name, ...(src.aliases||[])] : [fallback];
+    return [...new Set(out.filter(Boolean))].slice(0,12);
+  },
+
+  toggle(kind,id,label){
+    const k = Follows.key(kind,id);
+    if(Follows.map[k]){
+      delete Follows.map[k];
+      Toast.show("Unfollowed " + label);
+    }else{
+      Follows.map[k] = {kind, id, label, terms: Follows.terms(kind,id,label)};
+      Toast.show(Push.ready() ? "Following " + label
+                              : "Following " + label + " — turn notifications on to get alerts");
+    }
+    Follows.save();
+    Follows.render();
+    Render.view();
+    Push.sync();
+  },
+
+  clear(){
+    if(!confirm("Stop following all " + Follows.list().length + " of them?")) return;
+    Follows.map = {}; Follows.save(); Follows.render(); Render.view(); Push.sync();
+  },
+
+  button(kind,id,label){
+    const on = Follows.has(kind,id);
+    return `<button class="bell ${on?"on":""}"
+      onclick="Follows.toggle('${kind}','${id}',${JSON.stringify(label).replace(/"/g,"&quot;")})"
+      title="${on?"Stop getting alerts about this":"Get a notification when this is in the news"}">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      ${on ? "Following" : "Follow"}</button>`;
+  },
+
+  render(){
+    const list = Follows.list();
+    document.getElementById("followSect").style.display = list.length ? "" : "none";
+    document.getElementById("followList").innerHTML = list.map(f=>`
+      <div class="follrow">
+        <span class="nm" onclick="Nav.entity('${f.kind}','${f.id}')">${esc(f.label)}</span>
+        <button class="x" title="Unfollow"
+          onclick="event.stopPropagation();Follows.toggle('${f.kind}','${f.id}',${JSON.stringify(f.label).replace(/"/g,"&quot;")})">✕</button>
+      </div>`).join("");
+    Push.renderBar();
+  }
+};
+
+const Push = {
+  sub: null,
+
+  configured(){ return !!(CFG.pushServer && CFG.vapidPublicKey); },
+  supported(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; },
+  ready(){ return !!Push.sub; },
+
+  /* iOS only allows this from an app on the home screen, never a Safari tab. */
+  iosNeedsInstall(){
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+             || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const installed = (typeof window.matchMedia === "function"
+                        && window.matchMedia("(display-mode: standalone)").matches)
+                      || navigator.standalone === true;
+    return iOS && !installed;
+  },
+
+  async init(){
+    if(!Push.supported() || !Push.configured()) return Push.renderBar();
+    try{
+      const reg = await navigator.serviceWorker.ready;
+      Push.sub = await reg.pushManager.getSubscription();
+    }catch(e){}
+    Push.renderBar();
+  },
+
+  async enable(){
+    if(!Push.configured()) return Toast.show("Notification server isn't set up yet — see NOTIFICATIONS.md");
+    if(!Push.supported())  return Toast.show("This browser can't do notifications");
+    if(Push.iosNeedsInstall())
+      return Toast.show("On iPhone, add the app to your Home Screen first");
+
+    const perm = await Notification.requestPermission();
+    if(perm !== "granted") return Toast.show("Notifications blocked — allow them in your settings");
+
+    try{
+      const reg = await navigator.serviceWorker.ready;
+      Push.sub = await reg.pushManager.getSubscription()
+        || await reg.pushManager.subscribe({
+             userVisibleOnly: true,
+             applicationServerKey: Push.b64ToBytes(CFG.vapidPublicKey),
+           });
+      await Push.sync();
+      Toast.show("Notifications on");
+    }catch(e){
+      Toast.show("Couldn't turn them on: " + (e.message||e));
+    }
+    Push.renderBar();
+  },
+
+  async disable(){
+    try{
+      if(Push.sub){
+        await fetch(CFG.pushServer + "/unsubscribe", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({endpoint: Push.sub.endpoint})
+        }).catch(()=>{});
+        await Push.sub.unsubscribe();
+      }
+    }catch(e){}
+    Push.sub = null;
+    Toast.show("Notifications off");
+    Push.renderBar();
+  },
+
+  /* Called whenever the follow list changes, so the server always has the
+     current one. Silent — never nags if the network is down. */
+  async sync(){
+    if(!Push.sub || !Push.configured()) return;
+    try{
+      await fetch(CFG.pushServer + "/subscribe", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          subscription: Push.sub.toJSON ? Push.sub.toJSON() : Push.sub,
+          follows: Follows.list()
+        })
+      });
+    }catch(e){}
+  },
+
+  async test(){
+    if(!Push.sub) return Toast.show("Turn notifications on first");
+    const id = await Push.deviceId();
+    try{
+      const r = await fetch(CFG.pushServer + "/test", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({id})
+      });
+      Toast.show(r.ok ? "Test sent — check your phone" : "Server said no");
+    }catch(e){ Toast.show("Couldn't reach the notification server"); }
+  },
+
+  async deviceId(){
+    const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(Push.sub.endpoint));
+    return btoa(String.fromCharCode(...new Uint8Array(d)))
+      .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"").slice(0,22);
+  },
+
+  b64ToBytes(base64){
+    const pad = "=".repeat((4 - base64.length % 4) % 4);
+    const raw = atob((base64 + pad).replace(/-/g,"+").replace(/_/g,"/"));
+    return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+  },
+
+  renderBar(){
+    const el = document.getElementById("notifBar");
+    if(!el) return;
+    const n = Follows.list().length;
+
+    if(!Push.configured()){
+      el.innerHTML = `<b>Notifications</b>
+        <span class="muted">Not set up yet. Follow the steps in NOTIFICATIONS.md,
+        then paste your server address into config.js.</span>`;
+      return;
+    }
+    if(Push.iosNeedsInstall()){
+      el.innerHTML = `<b>Notifications</b>
+        <span class="muted">On iPhone these only work from the Home Screen app.
+        Tap Share, then Add to Home Screen, and open it from there.</span>`;
+      return;
+    }
+    if(Push.ready()){
+      el.innerHTML = `<b>Notifications are on</b>
+        <span class="muted">${n ? "Alerting you about " + n + (n===1?" thing":" things") + " you follow."
+                               : "You're not following anything yet — tap Follow on any club or player."}</span>
+        <button class="btn" onclick="Push.test()">Send a test</button>
+        <button class="btn" onclick="Push.disable()">Turn off</button>`;
+      return;
+    }
+    el.innerHTML = `<b>Notifications</b>
+      <span class="muted">Get a push the moment a club or player you follow is in the news.</span>
+      <button class="btn pri" onclick="Push.enable()">Turn on</button>`;
+  }
+};
+
+/* Tapping a notification asks the open app to jump to the post. */
+navigator.serviceWorker && navigator.serviceWorker.addEventListener("message", e=>{
+  if(e.data && e.data.open) window.open(e.data.open, "_blank", "noopener");
+});
 
 /* ============================================================
    UPDATE  —  the Update button, pull-to-refresh, and returning to the app

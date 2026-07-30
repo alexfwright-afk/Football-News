@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-fetch_posts.py — pull new Fabrizio Romano posts into posts.json
+fetch_posts.py — pull new posts into posts.json
 
-Source: the public web preview of his Telegram channel,
+Source: the public web preview of the Telegram channel,
         https://t.me/s/fabrizioromanotg
 
-Romano mirrors every X post to that channel, so the content is the same as the
-X API gave us — but the preview is a plain public web page. No account, no
-developer programme, no bearer token, no cost.
+The channel mirrors every X post, so the content is the same as the X API gave
+us — but the preview is a plain public web page. No account, no developer
+programme, no bearer token, no cost.
 
 How it behaves:
   * first run (empty posts.json) walks back BACKFILL_PAGES pages to seed history

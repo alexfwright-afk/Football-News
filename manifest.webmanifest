@@ -1,7 +1,7 @@
 {
-  "name": "Romano Tracker",
-  "short_name": "Romano",
-  "description": "Fabrizio Romano's transfer and injury news, sorted by club, player and deal stage.",
+  "name": "RD Football News",
+  "short_name": "Football News",
+  "description": "Transfer and injury news, sorted by club, player and deal stage.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

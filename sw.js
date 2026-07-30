@@ -12,7 +12,7 @@
  * without offline support.
  */
 
-const VERSION = "romano-tracker-v2";
+const VERSION = "football-news-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -84,4 +84,76 @@ self.addEventListener("fetch", event => {
 /* The page posts this after an update so a new build can take over at once. */
 self.addEventListener("message", e => {
   if (e.data === "skipWaiting") self.skipWaiting();
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NOTIFICATIONS
+   The server sends an empty push — a nudge, nothing more. No headline
+   travels through Apple's or Google's servers. We then ask our own Worker
+   what the news actually was, so the text stays between you and your site.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+try { importScripts("config.js"); } catch (e) { /* not configured yet */ }
+
+const b64url = buf =>
+  btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+/* Same derivation the Worker uses, so it recognises which queue is ours. */
+async function deviceId() {
+  const sub = await self.registration.pushManager.getSubscription();
+  if (!sub) return null;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sub.endpoint));
+  return b64url(digest).slice(0, 22);
+}
+
+self.addEventListener("push", event => {
+  event.waitUntil((async () => {
+    const cfg = self.FN_CONFIG || {};
+    let items = [];
+
+    if (cfg.pushServer) {
+      try {
+        const id = await deviceId();
+        if (id) {
+          const r = await fetch(cfg.pushServer + "/pending?id=" + encodeURIComponent(id), { cache: "no-store" });
+          if (r.ok) items = (await r.json()).items || [];
+        }
+      } catch (e) { /* fall through to the generic one below */ }
+    }
+
+    // A push must always produce a visible notification — browsers revoke the
+    // permission of apps that swallow them.
+    if (!items.length) {
+      items = [{ title: "RD Football News", body: "Something new about someone you follow.", url: "" }];
+    }
+
+    for (const it of items.slice(0, 3)) {
+      await self.registration.showNotification(it.title || "RD Football News", {
+        body: it.body || "",
+        icon: "icon-192.png",
+        badge: "favicon-64.png",
+        data: { url: it.url || "./" },
+        tag: it.url || undefined,        // same post twice replaces, never stacks
+        timestamp: it.ts ? Date.parse(it.ts) : Date.now(),
+      });
+    }
+  })());
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "./";
+  event.waitUntil((async () => {
+    // If the app is already open, bring it forward rather than opening a copy.
+    const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of tabs) {
+      if (c.url.includes(self.registration.scope) && "focus" in c) {
+        await c.focus();
+        if (target && target.startsWith("http")) c.postMessage({ open: target });
+        return;
+      }
+    }
+    await self.clients.openWindow(target && target.startsWith("http") ? target : "./");
+  })());
 });
