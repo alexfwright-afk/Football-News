@@ -1,0 +1,75 @@
+name: Update Romano Tracker
+
+# Every 15 minutes. The source is Fabrizio Romano's public Telegram channel,
+# so there's no API key and nothing to pay — the only limit is politeness.
+#
+# Note: GitHub's scheduled runners are best-effort and can lag by several
+# minutes when the platform is busy. That's normal; the next run catches up.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:        # lets you trigger a run by hand from the Actions tab
+
+# Only one run at a time, so two runs can't both try to commit posts.json.
+concurrency:
+  group: update-posts
+  cancel-in-progress: false
+
+permissions:
+  contents: write           # needed to commit posts.json back to the repo
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch new posts from Telegram
+        env:
+          TG_CHANNEL: fabrizioromanotg
+          MAX_POSTS: "800"
+          BACKFILL_PAGES: "15"    # only used on a cold start, ~300 posts
+        run: python3 fetch_posts.py
+
+      - name: Commit posts.json if it changed
+        run: |
+          if git diff --quiet -- posts.json; then
+            echo "no change — nothing to commit"
+            exit 0
+          fi
+          git config user.name  "romano-tracker-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add posts.json
+          git commit -m "posts: $(python3 -c 'import json;print(len(json.load(open("posts.json"))))') total [skip ci]"
+          # another run may have pushed while we were working — rebase and retry
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            echo "push failed, retry $i"; sleep 5
+          done
+          exit 1
+
+  deploy:
+    needs: fetch
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}       # pick up the commit the fetch job just made
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
