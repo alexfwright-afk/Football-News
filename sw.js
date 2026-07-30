@@ -12,7 +12,7 @@
  * without offline support.
  */
 
-const VERSION = "romano-tracker-v1";
+const VERSION = "romano-tracker-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -21,6 +21,8 @@ const SHELL = [
   "./icon-192.png",
   "./icon-512.png",
   "./favicon-32.png",
+  "./favicon-64.png",
+  "./favicon-180.png",
 ];
 
 self.addEventListener("install", event => {
