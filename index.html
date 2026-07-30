@@ -15,6 +15,15 @@
 <meta name="description" content="Transfer and injury news, sorted by club, player and deal stage.">
 <link rel="manifest" href="manifest.webmanifest">
 <script src="config.js"></script>
+<script>
+/* Runs before the stylesheet is applied, so the app never flashes the wrong
+   theme on open. "system" simply defers to the phone's own light/dark setting. */
+(function(){
+  var t = "system";
+  try{ t = localStorage.getItem("football-news-theme") || "system"; }catch(e){}
+  document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
@@ -28,7 +37,56 @@
   --agreed:#38bdf8; --advanced:#fbbf24; --talks:#f59e0b; --rumour:#6b7a8f;
   --injury:#ef4444; --contract:#22d3ee; --manager:#e879f9; --exit:#fb923c;
   --r:10px;
+  /* surfaces and accents that used to be written inline */
+  --sb:#2a3341; --sb2:#3a4657; --hover:#212936; --edge:#2f3a4a;
+  --mark-bg:#3d5a2a; --mark-fg:#c8f09a;
+  --fee-bg:#16301f; --fee-fg:#8fe0aa; --fee-bd:#235c37;
+  --bell-bg:#2a1418; --bell-bd:#7a2230; --bell-fg:#ff8b8b;
+  --chipon-bg:#1e3a2a; --chipon-fg:#8fe0aa;
+  --danger-fg:#ff8080; --danger-bd:#4a2626;
 }
+
+/* Light theme. Applied when you pick Light, or when you're on System and the
+   phone is in light mode. Same variables, different values — nothing else in
+   the stylesheet needs to know which one is active. */
+:root[data-theme="light"], .lightvals {
+  --bg:#f4f7fa; --bg2:#ffffff; --bg3:#eef2f7; --line:#dce3ec;
+  --tx:#0e1620; --tx2:#4a5a6d; --tx3:#637386;
+  --acc:#1e874a; --acc2:#1f6feb;
+  --hwg:#017a46; --official:#0077c2; --medical:#6d4df0;
+  --agreed:#0284c7; --advanced:#b45309; --talks:#b45309; --rumour:#64748b;
+  --injury:#dc2626; --contract:#0891b2; --manager:#c026d3; --exit:#ea580c;
+  --sb:#c9d3e0; --sb2:#b0bccb; --hover:#e9eef5; --edge:#c4cede;
+  --mark-bg:#fff2a0; --mark-fg:#3f3900;
+  --fee-bg:#e7f7ee; --fee-fg:#12703f; --fee-bd:#a9dcbd;
+  --bell-bg:#fdeaea; --bell-bd:#efb3b3; --bell-fg:#b3261e;
+  --chipon-bg:#ddf3e6; --chipon-fg:#12703f;
+  --danger-fg:#b3261e; --danger-bd:#efb3b3;
+}
+@media (prefers-color-scheme: light){
+  :root[data-theme="system"]{
+    --bg:#f4f7fa; --bg2:#ffffff; --bg3:#eef2f7; --line:#dce3ec;
+    --tx:#0e1620; --tx2:#4a5a6d; --tx3:#637386;
+    --acc:#1e874a; --acc2:#1f6feb;
+    --hwg:#017a46; --official:#0077c2; --medical:#6d4df0;
+    --agreed:#0284c7; --advanced:#b45309; --talks:#b45309; --rumour:#64748b;
+    --injury:#dc2626; --contract:#0891b2; --manager:#c026d3; --exit:#ea580c;
+    --sb:#c9d3e0; --sb2:#b0bccb; --hover:#e9eef5; --edge:#c4cede;
+    --mark-bg:#fff2a0; --mark-fg:#3f3900;
+    --fee-bg:#e7f7ee; --fee-fg:#12703f; --fee-bd:#a9dcbd;
+    --bell-bg:#fdeaea; --bell-bd:#efb3b3; --bell-fg:#b3261e;
+    --chipon-bg:#ddf3e6; --chipon-fg:#12703f;
+    --danger-fg:#b3261e; --danger-bd:#efb3b3;
+  }
+}
+.seg{display:flex;gap:4px;background:var(--bg);padding:3px;border-radius:9px}
+.seg button{flex:1;padding:9px;border-radius:7px;font-size:13px;color:var(--tx3)}
+.seg button.on{background:var(--bg3);color:var(--tx);font-weight:600}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:13px 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow .lab{font-size:13.5px}
+.setrow .lab span{display:block;color:var(--tx3);font-size:12px;margin-top:2px;line-height:1.45}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{
@@ -41,8 +99,8 @@ input,select,textarea{font:inherit;color:inherit}
 a{color:var(--acc2);text-decoration:none}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:#2a3341;border-radius:5px;border:2px solid var(--bg)}
-::-webkit-scrollbar-thumb:hover{background:#3a4657}
+::-webkit-scrollbar-thumb{background:var(--sb);border-radius:5px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--sb2)}
 
 /* ---------- layout ---------- */
 .app{display:flex;flex-direction:column;height:100vh}
@@ -72,7 +130,7 @@ header{
 .ac.on{display:block}
 .ac .grp{padding:7px 12px 4px;font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--tx3);background:var(--bg2)}
 .ac .it{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer}
-.ac .it:hover,.ac .it.sel{background:#202836}
+.ac .it:hover,.ac .it.sel{background:var(--hover)}
 .ac .it .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ac .it .sub{color:var(--tx3);font-size:11.5px;flex-shrink:0}
 .ac .it .n{color:var(--tx3);font-size:11px;background:var(--bg);padding:1px 6px;border-radius:20px}
@@ -82,7 +140,7 @@ header{
   background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:7px 13px;
   font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;
 }
-.btn:hover{background:#212936;border-color:#33405230}
+.btn:hover{background:var(--hover);border-color:var(--edge)}
 .btn.pri{background:var(--acc);border-color:transparent;color:#fff;font-weight:500}
 .btn.pri:hover{background:#45b86b}
 
@@ -105,7 +163,7 @@ aside{
   cursor:pointer;font-size:13px;color:var(--tx2);
 }
 .fil:hover{background:var(--bg3);color:var(--tx)}
-.fil.on{background:#1e2632;color:var(--tx)}
+.fil.on{background:var(--hover);color:var(--tx)}
 .fil .sw{width:8px;height:8px;border-radius:2.5px;flex-shrink:0}
 .fil .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fil .ct{font-size:11px;color:var(--tx3);background:var(--bg);padding:1px 6px;border-radius:20px}
@@ -159,7 +217,7 @@ aside{
   font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:6px;
 }
 .chip:hover{border-color:#3a4757;color:var(--tx)}
-.chip.on{background:#1e3a2a;border-color:var(--acc);color:#8fe0aa}
+.chip.on{background:var(--chipon-bg);border-color:var(--acc);color:var(--chipon-fg)}
 .chip .sw{width:7px;height:7px;border-radius:2px}
 
 .bar-sort{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12.5px;color:var(--tx3)}
@@ -170,7 +228,7 @@ aside{
   background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:15px 17px;margin-bottom:11px;
   position:relative;overflow:hidden;
 }
-.post:hover{border-color:#2f3a4a}
+.post:hover{border-color:var(--edge)}
 .post .accent{position:absolute;left:0;top:0;bottom:0;width:3px}
 .post .ph{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
 .badge{
@@ -180,7 +238,7 @@ aside{
 .stagebadge{font-size:10.5px;padding:3px 8px;border-radius:5px;border:1px solid;background:transparent}
 .post .time{color:var(--tx3);font-size:12px;margin-left:auto}
 .post .txt{font-size:14.5px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
-.post .txt mark{background:#3d5a2a;color:#c8f09a;padding:0 2px;border-radius:2px}
+.post .txt mark{background:var(--mark-bg);color:var(--mark-fg);padding:0 2px;border-radius:2px}
 .post .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid var(--line)}
 .tag{
   font-size:11.5px;padding:3px 9px;border-radius:6px;background:var(--bg3);
@@ -190,8 +248,8 @@ aside{
 .tag .k{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
 .tag.guess{border-style:dashed;opacity:.75}
 .post .fee{
-  display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#8fe0aa;
-  background:#16301f;border:1px solid #235c37;padding:2px 9px;border-radius:6px;
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--fee-fg);
+  background:var(--fee-bg);border:1px solid var(--fee-bd);padding:2px 9px;border-radius:6px;
 }
 .post .foot{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:11.5px;color:var(--tx3)}
 .post .foot a:hover{text-decoration:underline}
@@ -234,11 +292,11 @@ aside{
   color:var(--tx2);white-space:nowrap;flex-shrink:0;
 }
 .bell:hover{border-color:#3a4757;color:var(--tx)}
-.bell.on{background:#2a1418;border-color:#7a2230;color:#ff8b8b}
+.bell.on{background:var(--bell-bg);border-color:var(--bell-bd);color:var(--bell-fg)}
 .bell.on svg{fill:currentColor}
 .bell svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
 .tag .bellmini{margin-left:2px;opacity:.45}
-.tag .bellmini.on{opacity:1;color:#ff8b8b}
+.tag .bellmini.on{opacity:1;color:var(--bell-fg)}
 .follrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;
   cursor:pointer;font-size:13px;color:var(--tx2)}
 .follrow:hover{background:var(--bg3);color:var(--tx)}
@@ -358,6 +416,12 @@ aside{
         Import
       </button>
       <button class="btn" onclick="Modal.open('manage')">Data</button>
+      <button class="btn" onclick="Modal.open('settings')" title="Settings" aria-label="Settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -465,8 +529,31 @@ aside{
         <button class="btn" onclick="Store.export()">Export all posts as JSON</button>
         <button class="btn" onclick="Engine.reprocessAll()">Re-run classifier on all posts</button>
         <button class="btn" onclick="Store.loadSeed()">Restore the 27 Jul starter posts</button>
-        <button class="btn" style="color:#ff8080;border-color:#4a2626" onclick="Store.wipe()">Delete everything</button>
+        <button class="btn" style="color:var(--danger-fg);border-color:var(--danger-bd)" onclick="Store.wipe()">Delete everything</button>
       </div>
+    </div>
+    <div class="mf"><button class="btn" onclick="Modal.close()">Done</button></div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="ov" id="ovSettings" onclick="if(event.target===this)Modal.close()">
+  <div class="modal" style="max-width:440px">
+    <div class="mh"><h3>Settings</h3></div>
+    <div class="mb">
+
+      <div class="setrow" style="display:block">
+        <div class="lab" style="margin-bottom:9px">Appearance
+          <span>System follows your phone's own light and dark setting.</span></div>
+        <div class="seg" id="themeSeg">
+          <button data-theme="system" onclick="Theme.set('system')">System</button>
+          <button data-theme="light"  onclick="Theme.set('light')">Light</button>
+          <button data-theme="dark"   onclick="Theme.set('dark')">Dark</button>
+        </div>
+      </div>
+
+      <div id="setNotif"></div>
+
     </div>
     <div class="mf"><button class="btn" onclick="Modal.close()">Done</button></div>
   </div>
@@ -1697,7 +1784,12 @@ const Search = {
    ============================================================ */
 const Modal = {
   activeTab:"paste",
-  open(w){ document.getElementById(w==="import"?"ovImport":"ovManage").classList.add("on"); if(w==="manage") Render.sidebar(); },
+  open(w){
+    const id = w==="import" ? "ovImport" : w==="settings" ? "ovSettings" : "ovManage";
+    document.getElementById(id).classList.add("on");
+    if(w==="manage") Render.sidebar();
+    if(w==="settings"){ Theme.render(); Push.renderSettings(); }
+  },
   close(){ document.querySelectorAll(".ov").forEach(o=>o.classList.remove("on")); },
   tab(t,btn){
     Modal.activeTab=t;
@@ -1766,6 +1858,7 @@ async function boot(){
   Render.all();
   Render.stamp();
   Follows.render();
+  Theme.init();
   Push.init();
 }
 
@@ -1876,6 +1969,50 @@ const Follows = {
   }
 };
 
+const Theme = {
+  KEY: "football-news-theme",
+
+  get(){
+    try{ return localStorage.getItem(Theme.KEY) || "system"; }catch(e){ return "system"; }
+  },
+
+  set(mode){
+    try{ localStorage.setItem(Theme.KEY, mode); }catch(e){}
+    document.documentElement.setAttribute("data-theme", mode);
+    Theme.syncStatusBar();
+    Theme.render();
+  },
+
+  /* Keeps the iOS status bar and the browser chrome the same colour as the app,
+     otherwise light mode gets a black bar across the top. */
+  syncStatusBar(){
+    const bg = getComputedStyle(document.documentElement)
+                 .getPropertyValue("--bg").trim() || "#0c0f14";
+    let m = document.querySelector('meta[name="theme-color"]');
+    if(!m){ m = document.createElement("meta"); m.name = "theme-color"; document.head.appendChild(m); }
+    m.setAttribute("content", bg);
+  },
+
+  render(){
+    const now = Theme.get();
+    document.querySelectorAll("#themeSeg button").forEach(b=>{
+      b.classList.toggle("on", b.dataset.theme === now);
+    });
+  },
+
+  init(){
+    document.documentElement.setAttribute("data-theme", Theme.get());
+    Theme.syncStatusBar();
+    // following the system means reacting when the system changes
+    if(window.matchMedia){
+      const mq = window.matchMedia("(prefers-color-scheme: light)");
+      const onChange = ()=>{ if(Theme.get()==="system") Theme.syncStatusBar(); };
+      mq.addEventListener ? mq.addEventListener("change", onChange)
+                          : mq.addListener && mq.addListener(onChange);
+    }
+  }
+};
+
 const Push = {
   sub: null,
 
@@ -1980,10 +2117,51 @@ const Push = {
     return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
   },
 
+  /* The Settings sheet — this is where turning them off lives now, so a
+     mis-tap on the feed can't switch your alerts off by accident. */
+  renderSettings(){
+    const el = document.getElementById("setNotif");
+    if(!el) return;
+    const n = Follows.list().length;
+
+    if(!Push.configured()){
+      el.innerHTML = `<div class="setrow"><div class="lab">Notifications
+        <span>Not set up on this site yet — see NOTIFICATIONS.md.</span></div></div>`;
+      return;
+    }
+    if(Push.iosNeedsInstall()){
+      el.innerHTML = `<div class="setrow"><div class="lab">Notifications
+        <span>On iPhone these only work from the Home Screen app. Tap Share,
+        then Add to Home Screen, and open it from there.</span></div></div>`;
+      return;
+    }
+    if(Push.ready()){
+      el.innerHTML = `
+        <div class="setrow">
+          <div class="lab">Notifications <span>On${n ? " — following " + n + (n===1?" thing":" things") : ""}</span></div>
+          <button class="btn" onclick="Push.test()">Test</button>
+        </div>
+        <div class="setrow">
+          <div class="lab">Turn off notifications
+            <span>Your follows are kept. You can switch them back on any time.</span></div>
+          <button class="btn" style="color:var(--danger-fg);border-color:var(--danger-bd)"
+            onclick="Push.disable();Push.renderSettings()">Turn off</button>
+        </div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="setrow">
+        <div class="lab">Notifications
+          <span>Get a push when a club or player you follow is in the news.</span></div>
+        <button class="btn pri" onclick="Push.enable().then(Push.renderSettings)">Turn on</button>
+      </div>`;
+  },
+
   renderBar(){
     const els = [document.getElementById("notifBar"),
                  document.getElementById("notifBarMobile")].filter(Boolean);
     if(!els.length) return;
+    Push.renderSettings();
     const el = { set innerHTML(v){ els.forEach(e=>e.innerHTML = v); } };
     const n = Follows.list().length;
 
@@ -2003,8 +2181,7 @@ const Push = {
       el.innerHTML = `<b>Notifications are on</b>
         <span class="muted">${n ? "Alerting you about " + n + (n===1?" thing":" things") + " you follow."
                                : "You're not following anything yet — tap Follow on any club or player."}</span>
-        <button class="btn" onclick="Push.test()">Send a test</button>
-        <button class="btn" onclick="Push.disable()">Turn off</button>`;
+        <button class="btn" onclick="Push.test()">Send a test</button>`;
       return;
     }
     el.innerHTML = `<b>Notifications</b>
