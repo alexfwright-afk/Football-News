@@ -261,6 +261,8 @@ aside{
 }
 /* ---------- mobile ---------- */
 #mobileFilters{display:none}
+.mob-only{display:none}
+.notifbar.mob-only{margin:0 0 14px}
 /* Running from the home screen: keep content clear of the notch, the rounded
    corners and the home indicator. env() is 0 everywhere else, so this is inert
    on desktop. */
@@ -280,6 +282,7 @@ aside{
 
 @media(max-width:820px){
   aside{display:none}
+  .mob-only{display:block}
   header{flex-wrap:wrap;padding:10px 12px;gap:10px}
   .brand span{display:none}
   .searchwrap{order:3;max-width:none;flex-basis:100%}
@@ -401,6 +404,11 @@ aside{
 
     <div class="content" id="content">
       <div class="inner">
+        <div class="notifbar mob-only" id="notifBarMobile"></div>
+        <div class="sect mob-only" id="followSectMobile" style="display:none">
+          <h4>Following <button onclick="Follows.clear()">clear</button></h4>
+          <div id="followListMobile"></div>
+        </div>
         <div id="mobileFilters"></div>
         <div id="view"></div>
       </div>
@@ -1819,8 +1827,14 @@ const Follows = {
       Toast.show("Unfollowed " + label);
     }else{
       Follows.map[k] = {kind, id, label, terms: Follows.terms(kind,id,label)};
-      Toast.show(Push.ready() ? "Following " + label
-                              : "Following " + label + " — turn notifications on to get alerts");
+      Toast.show("Following " + label);
+
+      /* Tapping Follow is the moment you're actually asking for alerts, so ask
+         for permission here rather than making you hunt for a separate switch.
+         It has to happen inside this tap — browsers refuse the prompt otherwise. */
+      if(Push.configured() && !Push.ready() && !Push.iosNeedsInstall()){
+        Push.enable();
+      }
     }
     Follows.save();
     Follows.render();
@@ -1844,13 +1858,20 @@ const Follows = {
 
   render(){
     const list = Follows.list();
-    document.getElementById("followSect").style.display = list.length ? "" : "none";
-    document.getElementById("followList").innerHTML = list.map(f=>`
+    const html = list.map(f=>`
       <div class="follrow">
         <span class="nm" onclick="Nav.entity('${f.kind}','${f.id}')">${esc(f.label)}</span>
         <button class="x" title="Unfollow"
           onclick="event.stopPropagation();Follows.toggle('${f.kind}','${f.id}',${JSON.stringify(f.label).replace(/"/g,"&quot;")})">✕</button>
       </div>`).join("");
+    ["followSect","followSectMobile"].forEach(id=>{
+      const sect = document.getElementById(id);
+      if(sect) sect.style.display = list.length ? "" : "none";
+    });
+    ["followList","followListMobile"].forEach(id=>{
+      const box = document.getElementById(id);
+      if(box) box.innerHTML = html;
+    });
     Push.renderBar();
   }
 };
@@ -1960,8 +1981,10 @@ const Push = {
   },
 
   renderBar(){
-    const el = document.getElementById("notifBar");
-    if(!el) return;
+    const els = [document.getElementById("notifBar"),
+                 document.getElementById("notifBarMobile")].filter(Boolean);
+    if(!els.length) return;
+    const el = { set innerHTML(v){ els.forEach(e=>e.innerHTML = v); } };
     const n = Follows.list().length;
 
     if(!Push.configured()){
