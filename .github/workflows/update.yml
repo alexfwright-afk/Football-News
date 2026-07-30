@@ -1,13 +1,27 @@
 name: Update Romano Tracker
 
-# Every 15 minutes. The source is Fabrizio Romano's public Telegram channel,
+# Every 30 minutes. The source is Fabrizio Romano's public Telegram channel,
 # so there's no API key and nothing to pay — the only limit is politeness.
 #
-# Note: GitHub's scheduled runners are best-effort and can lag by several
-# minutes when the platform is busy. That's normal; the next run catches up.
+# Why 30 and not 15: GitHub runs scheduled jobs on a shared, best-effort queue.
+# They routinely start 5–20 minutes late, and when the platform is busy the
+# tightest schedules get dropped altogether rather than queued. Asking for every
+# 30 minutes reliably gives you roughly every 30 minutes; asking for every 15
+# often gives you fewer runs than this does. Nothing is lost by waiting either —
+# each run picks up every post since the last one.
+#
+# Two more things worth knowing about GitHub's schedules:
+#   * they only run from the default branch (main)
+#   * GitHub switches them off after 60 days with no activity in the repo, and
+#     emails you when it does. Pushing any commit turns them back on.
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/30 * * * *"
+  push:
+    branches: [main]        # redeploy straight away when you change the app
+    # Ignore the bot's own commits, so a run can't retrigger itself. The commit
+    # message also carries [skip ci]; this is the belt to that pair of braces.
+    paths-ignore: ["**.md", "posts.json"]
   workflow_dispatch:        # lets you trigger a run by hand from the Actions tab
 
 # Only one run at a time, so two runs can't both try to commit posts.json.
