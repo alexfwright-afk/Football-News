@@ -19,8 +19,9 @@
 /* Runs before the stylesheet is applied, so the app never flashes the wrong
    theme on open. "system" simply defers to the phone's own light/dark setting. */
 (function(){
-  var t = "system";
-  try{ t = localStorage.getItem("football-news-theme") || "system"; }catch(e){}
+  var t = "dark";
+  try{ t = localStorage.getItem("football-news-theme") || "dark"; }catch(e){}
+  if(t === "system") t = "dark";      // the old option, folded into Dark
   document.documentElement.setAttribute("data-theme", t);
 })();
 </script>
@@ -49,7 +50,7 @@
 /* Light theme. Applied when you pick Light, or when you're on System and the
    phone is in light mode. Same variables, different values — nothing else in
    the stylesheet needs to know which one is active. */
-:root[data-theme="light"], .lightvals {
+:root[data-theme="light"]{
   --bg:#f4f7fa; --bg2:#ffffff; --bg3:#eef2f7; --line:#dce3ec;
   --tx:#0e1620; --tx2:#4a5a6d; --tx3:#637386;
   --acc:#1e874a; --acc2:#1f6feb;
@@ -63,22 +64,33 @@
   --chipon-bg:#ddf3e6; --chipon-fg:#12703f;
   --danger-fg:#b3261e; --danger-bd:#efb3b3;
 }
-@media (prefers-color-scheme: light){
-  :root[data-theme="system"]{
-    --bg:#f4f7fa; --bg2:#ffffff; --bg3:#eef2f7; --line:#dce3ec;
-    --tx:#0e1620; --tx2:#4a5a6d; --tx3:#637386;
-    --acc:#1e874a; --acc2:#1f6feb;
-    --hwg:#017a46; --official:#0077c2; --medical:#6d4df0;
-    --agreed:#0284c7; --advanced:#b45309; --talks:#b45309; --rumour:#64748b;
-    --injury:#dc2626; --contract:#0891b2; --manager:#c026d3; --exit:#ea580c;
-    --sb:#c9d3e0; --sb2:#b0bccb; --hover:#e9eef5; --edge:#c4cede;
-    --mark-bg:#fff2a0; --mark-fg:#3f3900;
-    --fee-bg:#e7f7ee; --fee-fg:#12703f; --fee-bd:#a9dcbd;
-    --bell-bg:#fdeaea; --bell-bd:#efb3b3; --bell-fg:#b3261e;
-    --chipon-bg:#ddf3e6; --chipon-fg:#12703f;
-    --danger-fg:#b3261e; --danger-bd:#efb3b3;
-  }
+/* Pitch — the fun one. Floodlit grass at night: deep green, mowed stripes,
+   RD red for anything you can press, and a bright touchline green for links. */
+:root[data-theme="pitch"]{
+  --bg:#07160e; --bg2:#0d2117; --bg3:#122b1e; --line:#1e402c;
+  --tx:#f0f8f2; --tx2:#a3c6b0; --tx3:#7ba189;
+  --acc:#e02a2a; --acc2:#5ce08a;
+  --hwg:#3ffb8d; --official:#4fd2ff; --medical:#c4a3ff;
+  --agreed:#5ce08a; --advanced:#ffc247; --talks:#ffb02e; --rumour:#7ba189;
+  --injury:#ff6b6b; --contract:#4ee6d6; --manager:#ff8ae6; --exit:#ff9a52;
+  --sb:#1e402c; --sb2:#2c5a3e; --hover:#173425; --edge:#2b5940;
+  --mark-bg:#2f5f1f; --mark-fg:#d6ffab;
+  --fee-bg:#0f3a22; --fee-fg:#8bf0ae; --fee-bd:#2a6b41;
+  --bell-bg:#3a1414; --bell-bd:#8a2626; --bell-fg:#ff9b9b;
+  --chipon-bg:#1c4a2e; --chipon-fg:#9ef0b8;
+  --danger-fg:#ff9b9b; --danger-bd:#5a2020;
 }
+/* the mow */
+:root[data-theme="pitch"] body{
+  background-image:repeating-linear-gradient(90deg,
+    rgba(255,255,255,.022) 0 46px, rgba(0,0,0,0) 46px 92px);
+}
+/* a touchline under the header */
+:root[data-theme="pitch"] header{
+  border-bottom-color:rgba(255,255,255,.18);
+}
+:root[data-theme="pitch"] .btn.pri:hover{background:#f04444}
+
 .seg{display:flex;gap:4px;background:var(--bg);padding:3px;border-radius:9px}
 .seg button{flex:1;padding:9px;border-radius:7px;font-size:13px;color:var(--tx3)}
 .seg button.on{background:var(--bg3);color:var(--tx);font-weight:600}
@@ -544,11 +556,11 @@ aside{
 
       <div class="setrow" style="display:block">
         <div class="lab" style="margin-bottom:9px">Appearance
-          <span>System follows your phone's own light and dark setting.</span></div>
+          <span id="themeHint">&nbsp;</span></div>
         <div class="seg" id="themeSeg">
-          <button data-theme="system" onclick="Theme.set('system')">System</button>
-          <button data-theme="light"  onclick="Theme.set('light')">Light</button>
-          <button data-theme="dark"   onclick="Theme.set('dark')">Dark</button>
+          <button data-theme="dark"  onclick="Theme.set('dark')">Dark</button>
+          <button data-theme="light" onclick="Theme.set('light')">Light</button>
+          <button data-theme="pitch" onclick="Theme.set('pitch')">Pitch</button>
         </div>
       </div>
 
@@ -1972,8 +1984,16 @@ const Follows = {
 const Theme = {
   KEY: "football-news-theme",
 
+  HINTS: {
+    dark:  "The original. Easy on the eyes at midnight when a deal breaks.",
+    light: "Clean and bright for daylight and desks.",
+    pitch: "Floodlit grass at night — mowed stripes, RD red on the buttons."
+  },
+
   get(){
-    try{ return localStorage.getItem(Theme.KEY) || "system"; }catch(e){ return "system"; }
+    let t = "dark";
+    try{ t = localStorage.getItem(Theme.KEY) || "dark"; }catch(e){}
+    return t === "system" ? "dark" : t;      // the retired option
   },
 
   set(mode){
@@ -1998,18 +2018,16 @@ const Theme = {
     document.querySelectorAll("#themeSeg button").forEach(b=>{
       b.classList.toggle("on", b.dataset.theme === now);
     });
+    const hint = document.getElementById("themeHint");
+    if(hint) hint.textContent = Theme.HINTS[now] || "";
   },
 
   init(){
-    document.documentElement.setAttribute("data-theme", Theme.get());
+    /* Rewrite a stored "system" once, so the retired option doesn't linger. */
+    const t = Theme.get();
+    try{ localStorage.setItem(Theme.KEY, t); }catch(e){}
+    document.documentElement.setAttribute("data-theme", t);
     Theme.syncStatusBar();
-    // following the system means reacting when the system changes
-    if(window.matchMedia){
-      const mq = window.matchMedia("(prefers-color-scheme: light)");
-      const onChange = ()=>{ if(Theme.get()==="system") Theme.syncStatusBar(); };
-      mq.addEventListener ? mq.addEventListener("change", onChange)
-                          : mq.addListener && mq.addListener(onChange);
-    }
   }
 };
 
