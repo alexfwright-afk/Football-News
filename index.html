@@ -193,6 +193,12 @@ aside{
 .srcbox .nm{font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px}
 .srcbox .hd{font-size:11px;color:var(--tx3)}
 .srcbox .meta{margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-size:11px;color:var(--tx3);display:flex;justify-content:space-between}
+.srcrow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--tx2)}
+.srcrow:hover{background:var(--bg);color:var(--tx)}
+.srcrow.on{background:var(--hover);color:var(--tx);font-weight:600}
+.srcrow .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.srcrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srcrow .ct{font-size:11px;color:var(--tx3);background:var(--bg);padding:1px 6px;border-radius:20px}
 
 /* ---------- feed ---------- */
 .content{flex:1;overflow-y:auto;min-width:0}
@@ -251,6 +257,12 @@ aside{
   padding:3px 8px;border-radius:5px;
 }
 .stagebadge{font-size:10.5px;padding:3px 8px;border-radius:5px;border:1px solid;background:transparent}
+.srcpill{
+  display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
+  letter-spacing:.3px;padding:3px 8px;border-radius:5px;border:1px solid;background:transparent;
+}
+.srcpill .dot{width:5px;height:5px;border-radius:50%}
+.srcpill:hover{filter:brightness(1.25)}
 .post .time{color:var(--tx3);font-size:12px;margin-left:auto}
 .post .txt{font-size:14.5px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
 .post .txt mark{background:var(--mark-bg);color:var(--mark-fg);padding:0 2px;border-radius:2px}
@@ -438,16 +450,7 @@ aside{
 
   <main>
     <aside>
-      <div class="srcbox">
-        <div class="row">
-          <div class="av">FR</div>
-          <div style="min-width:0">
-            <div class="nm">Football News <span style="color:#e02a2a">✓</span></div>
-            <div class="hd"><a href="https://t.me/fabrizioromanotg" target="_blank" rel="noopener" style="color:inherit">t.me/fabrizioromanotg</a></div>
-          </div>
-        </div>
-        <div class="meta"><span id="srcCount">0 posts</span><span id="srcLast">—</span></div>
-      </div>
+      <div class="srcbox" id="sourceBox"></div>
 
       <div class="notifbar" id="notifBar"></div>
 
@@ -1008,6 +1011,15 @@ const ALIAS_KEYS = [...ALIAS.keys()].sort((a,b)=>b.length-a.length);
 /* ============================================================
    CATEGORY + STAGE VOCABULARY
    ============================================================ */
+/* Where posts come from. Add a source here and in fetch_posts.py's SOURCES,
+   using the same key, and everything else follows: badge, filter, search. */
+const SOURCES = {
+  romano:   {n:"Fabrizio Romano", short:"Romano",   c:"#22c55e", url:"https://t.me/fabrizioromanotg"},
+  ornstein: {n:"David Ornstein",  short:"Ornstein", c:"#38bdf8", url:"https://t.me/David_Ornstein"},
+};
+const SRC_FALLBACK = {n:"Unknown source", short:"Unknown", c:"#7c8798", url:""};
+const srcOf = k => SOURCES[k] || SRC_FALLBACK;
+
 const CATS = {
   transfer:{n:"Transfer",  c:"var(--acc2)",   bg:"#16304d", fg:"#8ec5ff"},
   loan:    {n:"Loan",      c:"#f59e0b",       bg:"#3a2c10", fg:"#ffd28a"},
@@ -1307,6 +1319,7 @@ const Engine = {
     return {
       id: p.id || ("g"+Math.random().toString(36).slice(2,11)),
       ts: p.ts || new Date().toISOString(),
+      source: p.source || "romano",     // anything imported without one predates multi-source
       text,
       url: p.url || null,
       cat: category,
@@ -1320,7 +1333,7 @@ const Engine = {
   },
 
   reprocessAll(){
-    DB.posts = DB.posts.map(p=>({...Engine.process({id:p.id,ts:p.ts,text:p.text,url:p.url,demo:p.demo})}));
+    DB.posts = DB.posts.map(p=>({...Engine.process({id:p.id,ts:p.ts,text:p.text,url:p.url,source:p.source,demo:p.demo})}));
     Store.save(); Render.all();
     Toast.show("Reclassified "+DB.posts.length+" posts");
   }
@@ -1335,7 +1348,7 @@ const KEY = "romano-tracker-v2";
 let DB = { posts: [] };
 let State = {
   view:{type:"feed"},
-  f:{cat:new Set(), stage:new Set(), league:new Set(), time:"all"},
+  f:{cat:new Set(), stage:new Set(), league:new Set(), src:new Set(), time:"all"},
   sort:"new",
   q:""
 };
@@ -1371,7 +1384,7 @@ const Store = {
   pending:0,
   save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ Toast.show("Storage full — export and trim your data"); } },
   export(){
-    const blob = new Blob([JSON.stringify(DB.posts.map(p=>({id:p.id,ts:p.ts,text:p.text,url:p.url})),null,2)],{type:"application/json"});
+    const blob = new Blob([JSON.stringify(DB.posts.map(p=>({id:p.id,ts:p.ts,text:p.text,url:p.url,source:p.source})),null,2)],{type:"application/json"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "football-news-posts-"+new Date().toISOString().slice(0,10)+".json";
@@ -1496,6 +1509,7 @@ function activePosts(){
   return DB.posts.filter(p=>{
     if(f.cat.size && !f.cat.has(p.cat)) return false;
     if(f.stage.size && !f.stage.has(p.stage)) return false;
+    if(f.src.size && !f.src.has(p.source)) return false;
     if(f.league.size && !p.clubs.some(c=>CLUB_BY_ID[c.id] && f.league.has(CLUB_BY_ID[c.id].league))) return false;
     if(cut && Date.now()-new Date(p.ts).getTime() > cut) return false;
     return true;
@@ -1521,6 +1535,14 @@ const Filters = {
     Render.all();
   },
   reset(kind){ State.f[kind].clear(); Render.all(); },
+  /* clicking a source pill jumps straight to "only this one" */
+  only(kind,val){
+    const s = State.f[kind];
+    if(s.size === 1 && s.has(val)) s.clear(); else { s.clear(); s.add(val); }
+    Render.all();
+    const c = document.getElementById("content");
+    if(c) c.scrollTop = 0;
+  },
   time(v){ State.f.time=v; Render.all(); }
 };
 
@@ -1532,8 +1554,20 @@ const Render = {
 
   sidebar(){
     const all = DB.posts;
-    document.getElementById("srcCount").textContent = all.length+" post"+(all.length===1?"":"s");
-    document.getElementById("srcLast").textContent = all.length ? "latest "+ago(all[0].ts) : "—";
+    /* Sources: who is being read, how much each has contributed, and a
+       one-click filter. Clicking an active source clears the filter again. */
+    document.getElementById("sourceBox").innerHTML =
+      Object.entries(SOURCES).map(([k,v])=>{
+        const n = all.filter(p=>p.source===k).length;
+        const on = State.f.src.has(k);
+        return `<div class="srcrow ${on?"on":""}" onclick="Filters.toggle('src','${k}')">
+          <span class="dot" style="background:${v.c}"></span>
+          <span class="nm">${esc(v.n)}</span>
+          <span class="ct">${n}</span>
+        </div>`;
+      }).join("")
+      + `<div class="meta"><span>${all.length} post${all.length===1?"":"s"}</span>
+           <span id="srcLast">${all.length ? "latest "+ago(all[0].ts) : "—"}</span></div>`;
 
     const count = fn => all.filter(fn).length;
 
@@ -1560,7 +1594,13 @@ const Render = {
       .map(([k,n])=>`<div class="fil ${State.f.time===k?"on":""}" onclick="Filters.time('${k}')"><div class="nm">${n}</div></div>`).join("");
 
     // phone: the sidebar is hidden, so surface the category filters as scrollable chips
-    document.getElementById("mobileFilters").innerHTML = Object.entries(CATS).map(([k,v])=>{
+    document.getElementById("mobileFilters").innerHTML =
+      Object.entries(SOURCES).map(([k,v])=>{
+        const n = count(p=>p.source===k); if(!n) return "";
+        return `<span class="chip ${State.f.src.has(k)?"on":""}" onclick="Filters.toggle('src','${k}')">
+          <span class="sw" style="background:${v.c};border-radius:50%"></span>${esc(v.short)} ${n}</span>`;
+      }).join("")
+      + Object.entries(CATS).map(([k,v])=>{
       const n = count(p=>p.cat===k); if(!n) return "";
       return `<button class="chip ${State.f.cat.has(k)?"on":""}" onclick="Filters.toggle('cat','${k}')">
         <span class="sw" style="background:${v.c}"></span>${v.n} <span style="color:var(--tx3)">${n}</span></button>`;
@@ -1702,13 +1742,17 @@ const Render = {
     return `<div class="post">
       <div class="accent" style="background:${cat.c}"></div>
       <div class="ph">
+        <button class="srcpill" onclick="Filters.only('src','${p.source}')"
+          title="Reported by ${esc(srcOf(p.source).n)} — click to show only this source"
+          style="color:${srcOf(p.source).c};border-color:${srcOf(p.source).c}55">
+          <span class="dot" style="background:${srcOf(p.source).c}"></span>${esc(srcOf(p.source).short)}</button>
         <span class="badge" style="background:${cat.bg};color:${cat.fg}">${cat.n}</span>
         ${st?`<span class="stagebadge" style="color:${st.c};border-color:${st.c}66">${st.n}</span>`:""}
         <span class="time">${ago(p.ts)}</span>
       </div>
       <div class="txt">${txt}</div>
       ${(clubTags||playerTags||bits.length)?`<div class="tags">${playerTags}${clubTags}${bits.join("")}</div>`:""}
-      ${p.url?`<div class="foot"><a href="${esc(p.url)}" target="_blank" rel="noopener">View on Telegram ↗</a></div>`:""}
+      ${p.url?`<div class="foot"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(srcOf(p.source).n)} on Telegram ↗</a></div>`:""}
     </div>`;
   }
 };
@@ -1768,7 +1812,9 @@ const Search = {
   freeText(){
     Search.hide();
     const q = norm(State.q);
-    const posts = sortPosts(DB.posts.filter(p=>norm(p.text).includes(q)));
+    /* Search the source name too, so "ornstein" finds everything he reported. */
+    const posts = sortPosts(DB.posts.filter(p=>
+      norm(p.text).includes(q) || norm(srcOf(p.source).n).includes(q)));
     document.getElementById("view").innerHTML =
       `<div class="crumb"><button onclick="Nav.home()">← All posts</button><span>/</span><span>“${esc(State.q)}”</span></div>`
       + Render.toolbar(posts.length) + (posts.length?posts.map(Render.card).join(""):`<div class="empty"><h3>No posts contain that</h3></div>`);
