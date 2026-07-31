@@ -1026,6 +1026,36 @@ const SOURCES = {
   ornstein: {n:"David Ornstein",  short:"Ornstein", c:"#38bdf8", url:"https://t.me/David_Ornstein"},
 };
 const SRC_FALLBACK = {n:"Unknown source", short:"Unknown", c:"#7c8798", url:""};
+
+/* Posts stored before multi-source existed have no `source` field, and nothing
+   re-reads them on load — so they'd all show as Unknown forever. Work the key
+   out from whatever the post does carry, in order of reliability:
+     1. the field itself
+     2. the Telegram channel in its url  (survives any id format)
+     3. the id prefix                    (romano-63801)
+   and only then give up. Everything below calls this rather than p.source. */
+const CHANNEL_TO_KEY = {};
+Object.entries(SOURCES).forEach(([k,v])=>{
+  const m = String(v.url||"").match(/t\.me\/([^/?#]+)/i);
+  if(m) CHANNEL_TO_KEY[m[1].toLowerCase()] = k;
+});
+
+function srcKey(p){
+  if(p && p.source && SOURCES[p.source]) return p.source;
+  if(p && p.url){
+    const m = String(p.url).match(/t\.me\/([^/?#]+)/i);
+    if(m){
+      const k = CHANNEL_TO_KEY[m[1].toLowerCase()];
+      if(k) return k;
+    }
+  }
+  if(p && p.id){
+    const m = String(p.id).match(/^([a-z][a-z0-9]*)-/i);
+    if(m && SOURCES[m[1]]) return m[1];
+  }
+  return Object.keys(SOURCES)[0];      // the original single source
+}
+
 const srcOf = k => SOURCES[k] || SRC_FALLBACK;
 
 const CATS = {
@@ -1327,7 +1357,7 @@ const Engine = {
     return {
       id: p.id || ("g"+Math.random().toString(36).slice(2,11)),
       ts: p.ts || new Date().toISOString(),
-      source: p.source || "romano",     // anything imported without one predates multi-source
+      source: srcKey(p),
       text,
       url: p.url || null,
       cat: category,
@@ -1376,6 +1406,12 @@ const Store = {
     if(!DB.posts)  DB.posts  = [];
     if(!DB.merged) DB.merged = [];
 
+    /* One-time backfill: give every stored post a source. Posts saved by an
+       older build have none, and without this they'd read "Unknown" forever. */
+    let backfilled = 0;
+    DB.posts.forEach(p=>{ if(!p.source || !SOURCES[p.source]){ p.source = srcKey(p); backfilled++; } });
+    if(backfilled) Store.save();
+
     const seen = new Set(DB.merged);
     const fresh = SEED.filter(p=>!seen.has(p.id));
     if(fresh.length){
@@ -1392,7 +1428,7 @@ const Store = {
   pending:0,
   save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ Toast.show("Storage full — export and trim your data"); } },
   export(){
-    const blob = new Blob([JSON.stringify(DB.posts.map(p=>({id:p.id,ts:p.ts,text:p.text,url:p.url,source:p.source})),null,2)],{type:"application/json"});
+    const blob = new Blob([JSON.stringify(DB.posts.map(p=>({id:p.id,ts:p.ts,text:p.text,url:p.url,source:srcKey(p)})),null,2)],{type:"application/json"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "football-news-posts-"+new Date().toISOString().slice(0,10)+".json";
@@ -1517,7 +1553,7 @@ function activePosts(){
   return DB.posts.filter(p=>{
     if(f.cat.size && !f.cat.has(p.cat)) return false;
     if(f.stage.size && !f.stage.has(p.stage)) return false;
-    if(f.src.size && !f.src.has(p.source)) return false;
+    if(f.src.size && !f.src.has(srcKey(p))) return false;
     if(f.league.size && !p.clubs.some(c=>CLUB_BY_ID[c.id] && f.league.has(CLUB_BY_ID[c.id].league))) return false;
     if(cut && Date.now()-new Date(p.ts).getTime() > cut) return false;
     return true;
@@ -1566,7 +1602,7 @@ const Render = {
        one-click filter. Clicking an active source clears the filter again. */
     document.getElementById("sourceBox").innerHTML =
       Object.entries(SOURCES).map(([k,v])=>{
-        const n = all.filter(p=>p.source===k).length;
+        const n = all.filter(p=>srcKey(p)===k).length;
         const on = State.f.src.has(k);
         return `<div class="srcrow ${on?"on":""}" onclick="Filters.toggle('src','${k}')">
           <span class="dot" style="background:${v.c}"></span>
@@ -1604,7 +1640,7 @@ const Render = {
     // phone: the sidebar is hidden, so surface the category filters as scrollable chips
     document.getElementById("mobileFilters").innerHTML =
       Object.entries(SOURCES).map(([k,v])=>{
-        const n = count(p=>p.source===k); if(!n) return "";
+        const n = count(p=>srcKey(p)===k); if(!n) return "";
         return `<span class="chip ${State.f.src.has(k)?"on":""}" onclick="Filters.toggle('src','${k}')">
           <span class="sw" style="background:${v.c};border-radius:50%"></span>${esc(v.short)} ${n}</span>`;
       }).join("")
@@ -1750,10 +1786,10 @@ const Render = {
     return `<div class="post">
       <div class="accent" style="background:${cat.c}"></div>
       <div class="ph">
-        <button class="srcpill" onclick="Filters.only('src','${p.source}')"
-          title="Reported by ${esc(srcOf(p.source).n)} — click to show only this source"
-          style="color:${srcOf(p.source).c}">
-          <span class="dot" style="background:${srcOf(p.source).c}"></span>${esc(srcOf(p.source).n)}</button>
+        <button class="srcpill" onclick="Filters.only('src','${srcKey(p)}')"
+          title="Reported by ${esc(srcOf(srcKey(p)).n)} — click to show only this source"
+          style="color:${srcOf(srcKey(p)).c}">
+          <span class="dot" style="background:${srcOf(srcKey(p)).c}"></span>${esc(srcOf(srcKey(p)).n)}</button>
         <span class="phsep"></span>
         <span class="badge" style="background:${cat.bg};color:${cat.fg}">${cat.n}</span>
         ${st?`<span class="stagebadge" style="color:${st.c};border-color:${st.c}66">${st.n}</span>`:""}
@@ -1761,7 +1797,7 @@ const Render = {
       </div>
       <div class="txt">${txt}</div>
       ${(clubTags||playerTags||bits.length)?`<div class="tags">${playerTags}${clubTags}${bits.join("")}</div>`:""}
-      ${p.url?`<div class="foot"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(srcOf(p.source).n)} on Telegram ↗</a></div>`:""}
+      ${p.url?`<div class="foot"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(srcOf(srcKey(p)).n)} on Telegram ↗</a></div>`:""}
     </div>`;
   }
 };
@@ -1823,7 +1859,7 @@ const Search = {
     const q = norm(State.q);
     /* Search the source name too, so "ornstein" finds everything he reported. */
     const posts = sortPosts(DB.posts.filter(p=>
-      norm(p.text).includes(q) || norm(srcOf(p.source).n).includes(q)));
+      norm(p.text).includes(q) || norm(srcOf(srcKey(p)).n).includes(q)));
     document.getElementById("view").innerHTML =
       `<div class="crumb"><button onclick="Nav.home()">← All posts</button><span>/</span><span>“${esc(State.q)}”</span></div>`
       + Render.toolbar(posts.length) + (posts.length?posts.map(Render.card).join(""):`<div class="empty"><h3>No posts contain that</h3></div>`);
