@@ -257,12 +257,20 @@ aside{
   padding:3px 8px;border-radius:5px;
 }
 .stagebadge{font-size:10.5px;padding:3px 8px;border-radius:5px;border:1px solid;background:transparent}
+/* The reporter leads the card. Their name is the first thing you read, in
+   their own colour, ahead of the category badges — you should never have to
+   wonder who said it. */
 .srcpill{
-  display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
-  letter-spacing:.3px;padding:3px 8px;border-radius:5px;border:1px solid;background:transparent;
+  display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;
+  letter-spacing:-.1px;padding:0;border:0;background:transparent;line-height:1.2;
 }
-.srcpill .dot{width:5px;height:5px;border-radius:50%}
-.srcpill:hover{filter:brightness(1.25)}
+.srcpill .dot{width:7px;height:7px;border-radius:50%;box-shadow:0 0 8px currentColor}
+.srcpill:hover{text-decoration:underline;text-underline-offset:3px}
+.phsep{width:1px;height:12px;background:var(--line);margin:0 2px;flex-shrink:0}
+@media(max-width:820px){
+  .srcpill{font-size:12.5px}
+  .phsep{display:none}
+}
 .post .time{color:var(--tx3);font-size:12px;margin-left:auto}
 .post .txt{font-size:14.5px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
 .post .txt mark{background:var(--mark-bg);color:var(--mark-fg);padding:0 2px;border-radius:2px}
@@ -1744,8 +1752,9 @@ const Render = {
       <div class="ph">
         <button class="srcpill" onclick="Filters.only('src','${p.source}')"
           title="Reported by ${esc(srcOf(p.source).n)} — click to show only this source"
-          style="color:${srcOf(p.source).c};border-color:${srcOf(p.source).c}55">
-          <span class="dot" style="background:${srcOf(p.source).c}"></span>${esc(srcOf(p.source).short)}</button>
+          style="color:${srcOf(p.source).c}">
+          <span class="dot" style="background:${srcOf(p.source).c}"></span>${esc(srcOf(p.source).n)}</button>
+        <span class="phsep"></span>
         <span class="badge" style="background:${cat.bg};color:${cat.fg}">${cat.n}</span>
         ${st?`<span class="stagebadge" style="color:${st.c};border-color:${st.c}66">${st.n}</span>`:""}
         <span class="time">${ago(p.ts)}</span>
