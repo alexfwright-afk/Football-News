@@ -1854,7 +1854,6 @@ async function boot(){
   try{
     const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
     if(!r.ok) throw new Error("HTTP " + r.status);
-    Render.noteFileTime(r);
     const data = await r.json();
     if(Array.isArray(data)) SEED = data;
   }catch(e){
@@ -1878,6 +1877,7 @@ async function boot(){
   Follows.load();
   Render.all();
   Render.stamp();
+  refreshLastCheck(true);
   Follows.render();
   Theme.init();
   Push.init();
@@ -2218,9 +2218,18 @@ const Push = {
   }
 };
 
-/* Tapping a notification asks the open app to jump to the post. */
+/* Tapping a notification asks the open app to jump to the post.
+   A new service worker taking over means a new build is live — reload once so
+   you're not left looking at the previous one. The flag stops that turning
+   into a loop if anything goes wrong. */
+let swReloaded = false;
 navigator.serviceWorker && navigator.serviceWorker.addEventListener("message", e=>{
-  if(e.data && e.data.open) window.open(e.data.open, "_blank", "noopener");
+  if(!e.data) return;
+  if(e.data.open) window.open(e.data.open, "_blank", "noopener");
+  if(e.data.swUpdated && !swReloaded){
+    swReloaded = true;
+    setTimeout(()=>location.reload(), 400);
+  }
 });
 
 /* ============================================================
@@ -2261,8 +2270,7 @@ const Live = {
       const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
       if(r.ok){
         reached = true;
-        Render.noteFileTime(r);
-        const data = await r.json();
+            const data = await r.json();
         if(Array.isArray(data) && data.length){
           SEED = data;
           if(!DB.merged) DB.merged = [];
@@ -2273,6 +2281,7 @@ const Live = {
       }
     }catch(e){ /* offline */ }
 
+    refreshLastCheck(true);
     Render.stamp();
     if(btn) btn.classList.remove("working");
     Live.busy = false;
@@ -2290,33 +2299,73 @@ Render.stamp = function(){
   Render.lastUpdate();
 };
 
-/* When GitHub last rewrote posts.json.
-   Last-Modified on the response is the real answer — it's the moment the file
-   was published, not a guess from the newest post. The workflow only commits
-   when something actually changed, so this is exactly "last post update".
-   Falls back to the newest post's own time if the header isn't there. */
-let POSTS_MTIME = null;
-Render.noteFileTime = function(res){
+/* "Last checked" — when the pipeline last actually looked at Telegram.
+ *
+ * Not the newest post's time (that's when news happened, not when we looked),
+ * and not the page load (that just says "now" forever). GitHub records every
+ * workflow run whether or not it found anything, so that register is the only
+ * honest answer — and it means a run that found nothing still counts as a
+ * check, which is the whole point.
+ *
+ * The repo is worked out from the address rather than hard-coded, so renaming
+ * it doesn't break this.
+ */
+const CHECK_KEY = "football-news-lastcheck";
+let LAST_CHECK = null;      // ms
+let CHECK_FETCHED = 0;      // when we last asked GitHub
+
+(function restoreCheck(){
   try{
-    const h = res.headers && res.headers.get && res.headers.get("last-modified");
-    if(h){
-      const t = Date.parse(h);
-      if(!isNaN(t)) POSTS_MTIME = t;
-    }
+    const v = parseInt(localStorage.getItem(CHECK_KEY) || "0", 10);
+    if(v) LAST_CHECK = v;
   }catch(e){}
-  Render.lastUpdate();
-};
+})();
+
+function repoSlug(){
+  const m = location.hostname.match(/^([\w-]+)\.github\.io$/i);
+  const seg = location.pathname.split("/").filter(Boolean)[0];
+  if(!m || !seg) return null;                 // localhost, file://, custom domain
+  return m[1] + "/" + seg;
+}
+
+async function refreshLastCheck(force){
+  const slug = repoSlug();
+  if(!slug) return;
+  // GitHub allows 60 unauthenticated calls an hour; once a minute is plenty
+  if(!force && Date.now() - CHECK_FETCHED < 60000) return;
+  CHECK_FETCHED = Date.now();
+  try{
+    const r = await fetch(
+      "https://api.github.com/repos/" + slug +
+      "/actions/workflows/update.yml/runs?per_page=1&status=completed",
+      {cache:"no-store", headers:{Accept:"application/vnd.github+json"}});
+    if(!r.ok) return;
+    const d = await r.json();
+    const run = d.workflow_runs && d.workflow_runs[0];
+    if(!run) return;
+    const t = Date.parse(run.updated_at || run.run_started_at);
+    if(isNaN(t)) return;
+    LAST_CHECK = t;
+    try{ localStorage.setItem(CHECK_KEY, String(t)); }catch(e){}
+    Render.lastUpdate();
+  }catch(e){ /* offline or rate-limited — the stored value still shows */ }
+}
 
 Render.lastUpdate = function(){
   const el = document.getElementById("lastUpd");
   if(!el) return;
-  const when = POSTS_MTIME || (DB.posts.length ? Date.parse(DB.posts[0].ts) : null);
-  if(!when || isNaN(when)){ el.textContent = ""; return; }
-  el.innerHTML = "Last post update:<br><b>" + esc(ago(new Date(when).toISOString())) + "</b>";
+  if(!LAST_CHECK){ el.textContent = ""; return; }
+  el.innerHTML = "Last checked:<br><b>" +
+    esc(ago(new Date(LAST_CHECK).toISOString())) + "</b>";
+  const newest = DB.posts.length ? ago(DB.posts[0].ts) : "—";
+  el.title = "The pipeline last looked at Telegram then.\nNewest post is " + newest + " old.";
 };
 
-/* The label would otherwise sit there saying "2m" for an hour. */
+/* The label would otherwise sit there saying "2m" for an hour. The text is
+   recomputed every minute; GitHub is only asked again every five, to stay well
+   inside the unauthenticated rate limit. */
 setInterval(Render.lastUpdate, 60000);
+setInterval(()=>refreshLastCheck(false), 300000);
 
 /* Coming back to the app after a while → pull new posts rather than reload.
    A reload in a home-screen app shows a blank flash; Live.update() doesn't,
