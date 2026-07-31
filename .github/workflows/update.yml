@@ -1,28 +1,27 @@
-name: Update Romano Tracker
+name: Update Football News
 
-# Every 30 minutes. The source is Fabrizio Romano's public Telegram channel,
-# so there's no API key and nothing to pay — the only limit is politeness.
+# This workflow has no schedule of its own. It runs only when something asks
+# it to.
 #
-# Why 30 and not 15: GitHub runs scheduled jobs on a shared, best-effort queue.
-# They routinely start 5–20 minutes late, and when the platform is busy the
-# tightest schedules get dropped altogether rather than queued. Asking for every
-# 30 minutes reliably gives you roughly every 30 minutes; asking for every 15
-# often gives you fewer runs than this does. Nothing is lost by waiting either —
-# each run picks up every post since the last one.
+# The timing lives in a Cloudflare Worker instead, which calls
+# workflow_dispatch on a real schedule. GitHub's own cron turned out to be the
+# wrong tool: it never fired at all for the first day, and it runs on a shared
+# best-effort queue that drops runs under load rather than queueing them. One
+# clock is also easier to reason about than two — when something runs too
+# often or not at all, there's only one place to look.
 #
-# Two more things worth knowing about GitHub's schedules:
-#   * they only run from the default branch (main)
-#   * GitHub switches them off after 60 days with no activity in the repo, and
-#     emails you when it does. Pushing any commit turns them back on.
+# If you ever want GitHub to schedule this again, put the block back:
+#
+#   schedule:
+#     - cron: "7,37 * * * *"        # avoid :00 and :30, GitHub's busiest minutes
+#
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   push:
     branches: [main]        # redeploy straight away when you change the app
     # Ignore the bot's own commits, so a run can't retrigger itself. The commit
     # message also carries [skip ci]; this is the belt to that pair of braces.
     paths-ignore: ["**.md", "posts.json"]
-  workflow_dispatch:        # lets you trigger a run by hand from the Actions tab
+  workflow_dispatch:        # the Cloudflare Worker, and the Run workflow button
 
 # Only one run at a time, so two runs can't both try to commit posts.json.
 concurrency:
@@ -57,7 +56,7 @@ jobs:
             echo "no change — nothing to commit"
             exit 0
           fi
-          git config user.name  "romano-tracker-bot"
+          git config user.name  "football-news-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add posts.json
           git commit -m "posts: $(python3 -c 'import json;print(len(json.load(open("posts.json"))))') total [skip ci]"
