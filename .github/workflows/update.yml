@@ -43,9 +43,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch new posts from Telegram
+      - name: Fetch new posts from all sources
         env:
-          TG_CHANNEL: fabrizioromanotg
+          # key:channel:Label — add a source here or in fetch_posts.py
+          TG_SOURCES: "romano:fabrizioromanotg:Fabrizio Romano, ornstein:David_Ornstein:David Ornstein"
           MAX_POSTS: "800"
           BACKFILL_PAGES: "15"    # only used on a cold start, ~300 posts
         run: python3 fetch_posts.py
