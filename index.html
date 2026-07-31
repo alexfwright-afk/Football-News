@@ -147,7 +147,10 @@ header{
 .ac .it .sub{color:var(--tx3);font-size:11.5px;flex-shrink:0}
 .ac .it .n{color:var(--tx3);font-size:11px;background:var(--bg);padding:1px 6px;border-radius:20px}
 
-.hbtns{display:flex;gap:8px;margin-left:auto;flex-shrink:0}
+.hbtns{display:flex;gap:8px;margin-left:auto;flex-shrink:0;align-items:center}
+.lastupd{font-size:11.5px;color:var(--tx3);white-space:nowrap;line-height:1.25}
+.lastupd b{color:var(--tx2);font-weight:600}
+@media(max-width:820px){ .lastupd{font-size:11px} }
 .btn{
   background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:7px 13px;
   font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;
@@ -417,17 +420,13 @@ aside{
     </div>
 
     <div class="hbtns">
+      <span class="lastupd" id="lastUpd" title="When posts.json on GitHub last changed"></span>
       <button class="btn" id="btnUpdate" onclick="Live.update()" title="Read every post since the last check">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <path d="M20 11a8 8 0 1 0-1.6 5.3"/><path d="M20 4v7h-7"/>
         </svg>
         Update
       </button>
-      <button class="btn" onclick="Modal.open('import')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
-        Import
-      </button>
-      <button class="btn" onclick="Modal.open('manage')">Data</button>
       <button class="btn" onclick="Modal.open('settings')" title="Settings" aria-label="Settings">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
           <circle cx="12" cy="12" r="3.2"/>
@@ -565,6 +564,11 @@ aside{
       </div>
 
       <div id="setNotif"></div>
+
+      <div class="setrow">
+        <div class="lab">Posts <span id="setCount">—</span></div>
+        <button class="btn" onclick="Modal.close();Modal.open('manage')">Manage</button>
+      </div>
 
     </div>
     <div class="mf"><button class="btn" onclick="Modal.close()">Done</button></div>
@@ -1800,7 +1804,11 @@ const Modal = {
     const id = w==="import" ? "ovImport" : w==="settings" ? "ovSettings" : "ovManage";
     document.getElementById(id).classList.add("on");
     if(w==="manage") Render.sidebar();
-    if(w==="settings"){ Theme.render(); Push.renderSettings(); }
+    if(w==="settings"){
+      Theme.render(); Push.renderSettings();
+      const c = document.getElementById("setCount");
+      if(c) c.textContent = DB.posts.length + " stored · import, export or clear them";
+    }
   },
   close(){ document.querySelectorAll(".ov").forEach(o=>o.classList.remove("on")); },
   tab(t,btn){
@@ -1846,6 +1854,7 @@ async function boot(){
   try{
     const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
     if(!r.ok) throw new Error("HTTP " + r.status);
+    Render.noteFileTime(r);
     const data = await r.json();
     if(Array.isArray(data)) SEED = data;
   }catch(e){
@@ -2180,6 +2189,14 @@ const Push = {
                  document.getElementById("notifBarMobile")].filter(Boolean);
     if(!els.length) return;
     Push.renderSettings();
+
+    /* Once they're on there's nothing left to say, so the box gets out of the
+       way entirely. Turning them off again lives in Settings. */
+    if(Push.ready()){
+      els.forEach(e=>{ e.style.display = "none"; e.innerHTML = ""; });
+      return;
+    }
+    els.forEach(e=>{ e.style.display = ""; });
     const el = { set innerHTML(v){ els.forEach(e=>e.innerHTML = v); } };
     const n = Follows.list().length;
 
@@ -2193,13 +2210,6 @@ const Push = {
       el.innerHTML = `<b>Notifications</b>
         <span class="muted">On iPhone these only work from the Home Screen app.
         Tap Share, then Add to Home Screen, and open it from there.</span>`;
-      return;
-    }
-    if(Push.ready()){
-      el.innerHTML = `<b>Notifications are on</b>
-        <span class="muted">${n ? "Alerting you about " + n + (n===1?" thing":" things") + " you follow."
-                               : "You're not following anything yet — tap Follow on any club or player."}</span>
-        <button class="btn" onclick="Push.test()">Send a test</button>`;
       return;
     }
     el.innerHTML = `<b>Notifications</b>
@@ -2251,6 +2261,7 @@ const Live = {
       const r = await fetch("posts.json?t=" + Date.now(), {cache:"no-store"});
       if(r.ok){
         reached = true;
+        Render.noteFileTime(r);
         const data = await r.json();
         if(Array.isArray(data) && data.length){
           SEED = data;
@@ -2276,7 +2287,36 @@ const Live = {
 Render.stamp = function(){
   const el = document.getElementById("srcLast");
   if(el && DB.posts.length) el.textContent = "latest " + ago(DB.posts[0].ts);
+  Render.lastUpdate();
 };
+
+/* When GitHub last rewrote posts.json.
+   Last-Modified on the response is the real answer — it's the moment the file
+   was published, not a guess from the newest post. The workflow only commits
+   when something actually changed, so this is exactly "last post update".
+   Falls back to the newest post's own time if the header isn't there. */
+let POSTS_MTIME = null;
+Render.noteFileTime = function(res){
+  try{
+    const h = res.headers && res.headers.get && res.headers.get("last-modified");
+    if(h){
+      const t = Date.parse(h);
+      if(!isNaN(t)) POSTS_MTIME = t;
+    }
+  }catch(e){}
+  Render.lastUpdate();
+};
+
+Render.lastUpdate = function(){
+  const el = document.getElementById("lastUpd");
+  if(!el) return;
+  const when = POSTS_MTIME || (DB.posts.length ? Date.parse(DB.posts[0].ts) : null);
+  if(!when || isNaN(when)){ el.textContent = ""; return; }
+  el.innerHTML = "Last post update:<br><b>" + esc(ago(new Date(when).toISOString())) + "</b>";
+};
+
+/* The label would otherwise sit there saying "2m" for an hour. */
+setInterval(Render.lastUpdate, 60000);
 
 /* Coming back to the app after a while → pull new posts rather than reload.
    A reload in a home-screen app shows a blank flash; Live.update() doesn't,
